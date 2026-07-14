@@ -7,17 +7,17 @@
 # from its standard env var (ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY,
 # ...). Supply that key via the OPENCODE_API_KEY repository secret — the
 # workflow maps it to the correct variable automatically.
-provider: anthropic
+provider: opencode-go
 
 # Model assignment per agent, in provider/model form. Use a concrete id (do NOT
 # use the literal "default" — the workflow will still substitute a per-provider
 # default, but an explicit id is clearer).
 models:
-  planner: anthropic/claude-sonnet-4-20250514
-  architect: anthropic/claude-sonnet-4-20250514
-  implementer: anthropic/claude-sonnet-4-20250514
-  reviewer: anthropic/claude-sonnet-4-20250514
-  qa: anthropic/claude-sonnet-4-20250514
+  planner: opencode-go/qwen3.6-plus
+  architect: opencode-go/qwen3.6-plus
+  implementer: opencode-go/qwen3.6-plus
+  reviewer: opencode-go/qwen3.6-plus
+  qa: opencode-go/qwen3.6-plus
 
 # Maximum tokens of repository context sent to agents. The discovery scripts
 # already keep context small; this is a hard ceiling for safety.
