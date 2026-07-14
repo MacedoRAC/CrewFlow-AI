@@ -96,16 +96,28 @@ docs/ai-workflow.md
 
 ### 2. Configure the agent runtime
 
-The shared dispatcher (`_ai-dispatch.yml`) looks for `opencode` or `claude` on
-`PATH`. In CI it attempts to install `@opencode-ai/cli` when neither is present.
-For production, pin it in a setup step inside `_ai-dispatch.yml`:
+Pick **OpenCode** or **Claude Code** as the reasoning engine and set it in
+`.ai/config.yml`:
 
 ```yaml
-- name: Install agent runtime
-  run: npm install -g @opencode-ai/cli
+agent_runtime: opencode   # or: claude
 ```
 
-Point it at your provider via the `OPENCODE_API_KEY` repo secret if required.
+The shared dispatcher (`_ai-dispatch.yml`) reads `agent_runtime` and installs
+the matching CLI automatically when it is not already on `PATH`.
+
+**OpenCode**
+- Install: `npm install -g @opencode-ai/cli` (or let CI install it).
+- Auth: repo secret `OPENCODE_API_KEY` if your provider requires one.
+- Invoked as: `opencode run --model <model> --auto "<prompt>"`.
+
+**Claude Code**
+- Install: `npm install -g @anthropic-ai/claude-code` (or let CI install it).
+- Auth: repo secret `ANTHROPIC_API_KEY` (or your provider/gateway key).
+- Invoked as: `claude --print --model <model> -p "<prompt>"`.
+
+Both runtimes use the same prompts and context — only the binary and auth
+secret differ, so switching is a one-line config change.
 
 ### 3. Provide a token
 

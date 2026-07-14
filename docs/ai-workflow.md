@@ -215,13 +215,49 @@ the reasoning.
 2. Create a repository secret `AI_GITHUB_TOKEN` (a PAT or fine-grained token
    with `contents`, `issues`, `pull-requests` write) — or rely on the default
    `GITHUB_TOKEN`.
-3. Ensure the agent runtime (`opencode` or `claude`) is installable in CI. The
-   dispatcher will `npm install` it when absent; for production, pin it in a
-   setup step.
+3. Choose and configure the **agent runtime** (OpenCode **or** Claude Code).
+   See [Agent runtime setup](#agent-runtime-setup) below.
 4. Apply the labels from `.github/labels.yml`.
 5. Open an issue (or comment `/analyze`) to start the workflow.
 
 See the **Installation** section of [`README.md`](../README.md) for a step-by-step checklist.
+
+---
+
+### Agent runtime setup
+
+The framework supports two headless runtimes. Pick one and set it in
+`.ai/config.yml` under `agent_runtime`:
+
+```yaml
+agent_runtime: opencode   # or: claude
+```
+
+The shared dispatcher (`_ai-dispatch.yml`) reads `agent_runtime` and installs
+the matching CLI automatically when it is not already on `PATH`. For production,
+pin the install in a setup step.
+
+#### Option A — OpenCode
+
+- Install locally (optional): `npm install -g @opencode-ai/cli`
+- CI: the dispatcher runs `npm install --no-save @opencode-ai/cli` when missing.
+- Provide a provider key if your OpenCode provider requires one:
+  repo secret `OPENCODE_API_KEY`.
+- Invocation (handled for you): `opencode run --model <model> --auto "<prompt>"`
+
+#### Option B — Claude Code
+
+- Install locally (optional): `npm install -g @anthropic-ai/claude-code`
+- CI: the dispatcher runs `npm install --no-save @anthropic-ai/claude-code`
+  when missing.
+- Authenticate in CI with a provider key, e.g. repo secret `ANTHROPIC_API_KEY`
+  (or your gateway/provider key). The agent runs with `--print` and applies
+  changes with auto-approved permissions.
+- Invocation (handled for you): `claude --print --model <model> -p "<prompt>"`
+
+> Both runtimes receive the **same** prompt templates and context; only the
+> binary and auth secret differ. Switching runtimes is a one-line config change.
+
 
 ---
 
