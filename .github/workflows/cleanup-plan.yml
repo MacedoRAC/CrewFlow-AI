@@ -1,0 +1,55 @@
+name: Cleanup Plan
+
+# Remove a plan from the default branch when an issue is closed without ever
+# being implemented, so stale plans don't linger in history. Plans that
+# shipped via a merged PR are kept.
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  contents: write
+  issues: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Remove plan if issue was not implemented
+        env:
+          GH_TOKEN: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          PLAN=".ai/plans/issue-${ISSUE}.md"
+          if [ ! -f "$PLAN" ]; then
+            echo "No plan file for #${ISSUE}; nothing to clean up."
+            exit 0
+          fi
+
+          # Keep the plan if the issue was implemented (a merged PR references it).
+          IMPLEMENTED=0
+          if [ "$(gh issue view "$ISSUE" --json closedByPullRequestsReferences --jq '.closedByPullRequestsReferences | length')" != "0" ]; then
+            IMPLEMENTED=1
+          fi
+          if [ "$IMPLEMENTED" = "0" ]; then
+            N=$(gh pr list --repo "$REPO" --search "is:merged ${ISSUE} in:body,title" --json number --jq 'length' 2>/dev/null || echo 0)
+            [ "${N:-0}" != "0" ] && IMPLEMENTED=1
+          fi
+
+          if [ "$IMPLEMENTED" = "1" ]; then
+            echo "Issue #${ISSUE} was implemented (merged PR); keeping plan."
+            exit 0
+          fi
+
+          echo "Issue #${ISSUE} closed without implementation; removing stale plan."
+          git config user.name "crewflow[bot]"
+          git config user.email "crewflow[bot]@users.noreply.github.com"
+          git rm "$PLAN"
+          git commit -m "chore(ai): remove stale plan for closed issue #${ISSUE}"
+          git push origin HEAD
