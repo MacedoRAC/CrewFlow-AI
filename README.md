@@ -75,6 +75,16 @@ Every stage is **restartable and idempotent**.
 
 ## Installation
 
+> 💡 **Too lazy to do it by hand?** Ask your vibe coding tool to set it up for
+> you. Open it in **plan mode** and prompt:
+>
+> ```text
+> Add https://github.com/MacedoRAC/CrewFlow-AI to this project
+> ```
+>
+> The coding agent will analyze your repository and ask you which option you want
+> to go for before making any changes.
+
 ### 1. Copy the framework
 
 Copy these directories and files into your repository root:
