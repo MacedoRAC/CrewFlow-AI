@@ -121,6 +121,53 @@ Implemented as GitHub Issue Comment events:
 
 ---
 
+## Implementation Plan Lifecycle
+
+The plan for each issue lives at **`.ai/plans/issue-<n>.md`** and is
+committed to the **default branch** (e.g. `main`) by the analysis agents.
+It is *not* stored on a feature branch and *not* kept only as a workflow
+artifact — it is a first-class file in the repository.
+
+### Where & when it is committed
+
+| Trigger | What happens | Committed by |
+|---------|----------------|----------------|
+| `/analyze` | Planner writes the plan; Architect appends a `## Architect Review` verdict | persist step in `_ai-dispatch.yml` |
+| `/retry` | Re-runs the Planner; plan is overwritten | persist step |
+| `/revise <instructions>` | Rewrites the existing plan in place | persist step (its `if` includes `revise`) |
+| `/implement` | **Does not commit the plan.** Branches `issue-<n>-<slug>` from the default branch (which already has the plan) and opens a PR | — (plan already on default) |
+
+The persist step runs only for `planner`, `architect`, and `revise` agents;
+the Implementer/Reviewer/QA agents never touch the plan file.
+
+### Why it stays in the repo
+
+- **Provenance** — a permanent issue → plan → PR → merged-code trail.
+- **Institutional memory** — future agents read prior plans to avoid
+  contradicting past decisions.
+- **Feeds the docs sync** — `sync-docs.yml` derives architecture/memory
+  docs from these artifacts.
+- **Recovery / re-implementation** — the plan is the spec to rebuild from
+  via `/revise` + `/implement`.
+- **Human reference** — a readable design record that outlives the issue thread.
+
+### How it gets cleaned up
+
+- **On PR merge:** the plan is *not* deleted. The merge only brings the
+  feature-branch code into the default branch; the plan is already there, so
+  it remains as a permanent record of what shipped.
+- **On issue closed *without* a merged PR** (e.g. irrelevant/duplicate):
+  `cleanup-plan.yml` deletes `.ai/plans/issue-<n>.md` from the default
+  branch — *unless* a merged PR implemented it (`closedByPullRequestsReferences`
+  or a merged PR referencing `#<n>`). This prevents stale plans from
+  lingering in history.
+
+> Note: analysis commits the plan to the default branch immediately. If you
+> close an issue without implementing it, the plan stays on `main` only until
+> the close event triggers the cleanup workflow.
+
+---
+
 ## Directory Structure
 
 ```text
