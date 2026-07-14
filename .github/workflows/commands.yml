@@ -68,6 +68,18 @@ jobs:
       AI_GITHUB_TOKEN: ${{ secrets.AI_GITHUB_TOKEN }}
       OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
 
+  revise:
+    needs: route
+    if: needs.route.outputs.command == 'revise'
+    uses: ./.github/workflows/_ai-dispatch.yml
+    with:
+      agent: revise
+      issue-number: ${{ needs.route.outputs.issue }}
+      comment-id: ${{ github.event.comment.id }}
+    secrets:
+      AI_GITHUB_TOKEN: ${{ secrets.AI_GITHUB_TOKEN }}
+      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+
   retry:
     needs: route
     if: needs.route.outputs.command == 'retry'

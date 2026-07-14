@@ -71,6 +71,7 @@ Every stage is **restartable and idempotent**.
 | `/review` | Request a Review pass on the linked PR |
 | `/qa` | Request a QA pass on the linked PR |
 | `/retry` | Re-run the planner for the issue |
+| `/revise <instructions>` | Rewrite the existing plan using your inline instructions |
 | `/update-plan` | Flag the current plan for human revision |
 | `/summarize` | Post the current plan summary as a comment |
 | `/regenerate-context` | Rebuild the compact repository context |

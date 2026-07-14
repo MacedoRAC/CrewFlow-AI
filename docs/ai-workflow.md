@@ -110,6 +110,7 @@ Implemented as GitHub Issue Comment events:
 | `/review` | Request a Review pass |
 | `/qa` | Request a QA pass |
 | `/retry` | Re-run the last failed stage |
+| `/revise <instructions>` | Rewrite the existing plan following your inline instructions |
 | `/update-plan` | Allow human to revise the approved plan before implement |
 | `/summarize` | Post a summary comment of the current plan |
 | `/regenerate-context` | Rebuild `.ai/context/latest.json` |

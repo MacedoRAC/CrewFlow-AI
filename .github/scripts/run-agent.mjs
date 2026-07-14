@@ -28,7 +28,7 @@ const isCI = env.GITHUB_ACTIONS === "true";
 // Agents whose final message is a human-readable summary worth posting as a
 // comment. reviewer/implementer perform their own GitHub actions (reviews,
 // opening a PR) via `gh`, so we don't double-post for them.
-const SUMMARY_AGENTS = new Set(["planner", "architect", "qa"]);
+const SUMMARY_AGENTS = new Set(["planner", "architect", "qa", "revise"]);
 
 function fail(message) {
   console.error(`[agent] ${message}`);
@@ -60,6 +60,18 @@ function fetchPrBody() {
   }
 }
 
+function fetchCommentBody() {
+  if (!env.AI_COMMENT_ID || !env.GITHUB_REPOSITORY) return "";
+  try {
+    return execSync(
+      `gh api repos/${env.GITHUB_REPOSITORY}/issues/comments/${env.AI_COMMENT_ID} --jq .body`,
+      { encoding: "utf8", env }
+    ).trim();
+  } catch {
+    return "";
+  }
+}
+
 function buildPrompt() {
   const tmpl = existsSync(env.AI_PROMPT) ? readFileSync(env.AI_PROMPT, "utf8") : "";
   let context = "";
@@ -70,6 +82,10 @@ function buildPrompt() {
   }
   const issue = fetchIssueBody();
   const pr = fetchPrBody();
+  const comment = fetchCommentBody();
+  const commentBlock = comment
+    ? `\n<triggering-comment>\n${comment}\n</triggering-comment>\n`
+    : "";
   return `${tmpl}
 
 <repository-context>
@@ -82,8 +98,7 @@ ${issue}
 
 <pull-request>
 ${pr}
-</pull-request>
-
+</pull-request>${commentBlock}
 <agent-metadata>
 agent: ${env.AI_AGENT}
 issue: ${env.AI_ISSUE_NUMBER || "n/a"}

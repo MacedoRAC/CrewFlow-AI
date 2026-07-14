@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       agent:
-        description: "Agent to run (planner, architect, implementer, reviewer, qa)"
+        description: "Agent to run (planner, architect, implementer, reviewer, qa, revise)"
         required: true
         type: string
       issue-number:
@@ -175,7 +175,7 @@ jobs:
         # Analysis agents write .ai/plans etc. that downstream agents
         # (architect, implementer) need. They run in separate runners with
         # fresh checkouts, so commit the outputs back to the default branch.
-        if: ${{ inputs.agent == 'planner' || inputs.agent == 'architect' }}
+        if: ${{ inputs.agent == 'planner' || inputs.agent == 'architect' || inputs.agent == 'revise' }}
         env:
           GH_TOKEN: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
         run: |

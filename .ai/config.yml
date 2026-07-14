@@ -18,6 +18,7 @@ models:
   implementer: opencode-go/qwen3.6-plus
   reviewer: opencode-go/qwen3.6-plus
   qa: opencode-go/qwen3.6-plus
+  revise: opencode-go/qwen3.6-plus
 
 # Maximum tokens of repository context sent to agents. The discovery scripts
 # already keep context small; this is a hard ceiling for safety.
