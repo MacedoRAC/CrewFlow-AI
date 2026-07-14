@@ -64,6 +64,19 @@ Every stage is **restartable and idempotent**.
 
 ---
 
+## How plans are stored
+
+Each issue's plan is committed to the **default branch** at
+`.ai/plans/issue-<n>.md` by the analysis agents (`/analyze`, `/retry`,
+`/revise`) — not on a feature branch. `/implement` does **not** commit
+the plan; it branches from the default branch, which already has it.
+
+- **Why it stays:** it is the issue → plan → PR → merged-code trail, gives
+  future agents prior-decision context, and feeds the architecture/memory sync.
+- **Cleanup:** on a merged PR the plan remains as a permanent record. If an
+  issue is **closed without a merged PR**, `cleanup-plan.yml` deletes its
+  plan from the default branch so stale plans don't linger.
+
 ## Slash commands
 
 | Command | Action |
