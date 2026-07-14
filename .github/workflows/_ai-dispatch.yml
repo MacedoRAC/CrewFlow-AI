@@ -150,7 +150,9 @@ jobs:
 
       - name: Resolve model from config
         id: model
-        run: node .github/scripts/resolve-model.mjs "${{ inputs.agent }}" "${{ steps.cfg.outputs.provider }}" "${{ steps.cfg.outputs.runtime }}"
+        # resolve-model.mjs prints "model=<value>"; forward that line to
+        # $GITHUB_OUTPUT so the Run agent step can read steps.model.outputs.model.
+        run: echo "$(node .github/scripts/resolve-model.mjs "${{ inputs.agent }}" "${{ steps.cfg.outputs.provider }}" "${{ steps.cfg.outputs.runtime }}")" >> "$GITHUB_OUTPUT"
 
       - name: Run agent
         id: agent
