@@ -43,7 +43,7 @@ jobs:
       OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
 
   label:
-    needs: implement
+    needs: [implement, authorize]
     runs-on: ubuntu-latest
     permissions:
       issues: write

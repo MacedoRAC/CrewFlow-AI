@@ -2,11 +2,9 @@ name: Issue Analysis
 
 on:
   issues:
-    types: [opened, edited, reopened]
+    types: [opened, edited, reopened, labeled]
   issue_comment:
     types: [created]
-  label:
-    types: [labeled]
 
 permissions:
   contents: write
@@ -20,8 +18,8 @@ concurrency:
 jobs:
   authorize:
     if: >-
-      (github.event_name == 'issues' && github.event.issue.state == 'open') ||
-      (github.event_name == 'label' && github.event.label.name == 'needs-analysis') ||
+      (github.event_name == 'issues' && github.event.action != 'labeled' && github.event.issue.state == 'open') ||
+      (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'needs-analysis') ||
       (github.event_name == 'issue_comment' &&
         github.event.issue.pull_request == null &&
         startsWith(github.event.comment.body, '/analyze'))
@@ -60,7 +58,7 @@ jobs:
       OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
 
   label:
-    needs: [analyze, architect]
+    needs: [analyze, architect, authorize]
     runs-on: ubuntu-latest
     permissions:
       issues: write
