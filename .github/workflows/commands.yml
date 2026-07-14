@@ -90,7 +90,7 @@ jobs:
           token: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
       - name: Regenerate context
         env:
           AI_ISSUE_NUMBER: ${{ needs.route.outputs.issue }}
