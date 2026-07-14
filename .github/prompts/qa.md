@@ -10,6 +10,20 @@ the Reviewer approves a Pull Request. Your job is to confirm the change is
 - The linked issue and approved plan.
 - The repository context (`<repository-context>`).
 
+The linked issue number is given in `<agent-metadata>` as `issue: <number>`.
+If it shows `issue: n/a`, derive it from the PR before looking for the plan:
+
+```bash
+gh pr view <pr-number> --json closingIssuesReferences -q '.closingIssuesReferences[0].number'
+# fallback: parse the branch name, e.g. issue-2-replace-department-head
+```
+
+Then read the approved plan directly with the Read tool (do not rely on a glob):
+
+```
+.ai/plans/issue-<number>.md
+```
+
 ## Validation
 
 Verify against each dimension and report PASS / FAIL:

@@ -72,6 +72,30 @@ function fetchCommentBody() {
   }
 }
 
+function resolveIssueNumber() {
+  if (env.AI_ISSUE_NUMBER) return env.AI_ISSUE_NUMBER;
+  if (!env.AI_PR_NUMBER) return "";
+  // When an agent is dispatched against a PR but no issue number was supplied
+  // (reviewer, qa), derive the linked issue so it can locate
+  // `.ai/plans/issue-<number>.md`. Prefer the PR's closing-issue reference,
+  // then fall back to an `issue-<n>-` branch name.
+  try {
+    const data = JSON.parse(
+      execSync(
+        `gh pr view ${env.AI_PR_NUMBER} --json closingIssuesReferences,headRefName`,
+        { encoding: "utf8", env }
+      )
+    );
+    const linked = data.closingIssuesReferences && data.closingIssuesReferences[0];
+    if (linked && linked.number) return String(linked.number);
+    const m = (data.headRefName || "").match(/issue[/-](\d+)/i);
+    if (m) return m[1];
+  } catch {
+    /* best effort — leave empty if gh is unavailable */
+  }
+  return "";
+}
+
 function buildPrompt() {
   const tmpl = existsSync(env.AI_PROMPT) ? readFileSync(env.AI_PROMPT, "utf8") : "";
   let context = "";
@@ -186,6 +210,14 @@ function postComment(text) {
 }
 
 async function main() {
+  // If the agent runs against a PR but no explicit issue number was supplied,
+  // resolve the linked issue so it can locate `.ai/plans/issue-<number>.md`
+  // and populate the `<issue>` block.
+  if (!env.AI_ISSUE_NUMBER && env.AI_PR_NUMBER) {
+    const resolved = resolveIssueNumber();
+    if (resolved) env.AI_ISSUE_NUMBER = resolved;
+  }
+
   const prompt = buildPrompt();
   const promptFile = join(process.cwd(), ".ai", "context", `prompt-${env.AI_AGENT}.md`);
   writeFileSync(promptFile, prompt);

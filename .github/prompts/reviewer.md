@@ -10,6 +10,20 @@ comments and approve only when quality is satisfied.
 - The repository context (`<repository-context>`).
 - The linked issue and plan (fetch via `gh` if needed).
 
+The linked issue number is given in `<agent-metadata>` as `issue: <number>`.
+If it shows `issue: n/a`, derive it from the PR:
+
+```bash
+gh pr view <pr-number> --json closingIssuesReferences -q '.closingIssuesReferences[0].number'
+# fallback: parse the branch name, e.g. issue-2-replace-department-head
+```
+
+Then read the approved plan directly with the Read tool (do not rely on a glob):
+
+```
+.ai/plans/issue-<number>.md
+```
+
 ## Review checklist
 
 Evaluate and comment on:
