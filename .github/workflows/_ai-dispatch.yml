@@ -182,10 +182,15 @@ jobs:
           git add .ai/plans .ai/architecture .ai/memory || true
           if git diff --cached --quiet; then
             echo "No agent artifacts to persist."
-          else
-            git commit -m "docs(ai): update ${{ inputs.agent }} output for #${{ inputs.issue-number || inputs.pr-number }}"
-            git push origin HEAD
+            exit 0
           fi
+          git config user.name "crewflow[bot]"
+          git config user.email "crewflow[bot]@users.noreply.github.com"
+          git commit -m "docs(ai): update ${{ inputs.agent }} output for #${{ inputs.issue-number || inputs.pr-number }}"
+          # Rebase onto the latest default branch so the push is a fast-forward
+          # even if main moved while the agent was running.
+          git pull --rebase origin "$(git rev-parse --abbrev-ref HEAD)" 2>&1 || true
+          git push origin HEAD
 
       - name: Upload artifacts
         if: always()
