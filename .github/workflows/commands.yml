@@ -119,13 +119,9 @@ jobs:
           PLAN=".ai/plans/issue-${ISSUE}.md"
           if [ -f "$PLAN" ]; then
             BODY=$(head -n 60 "$PLAN")
-            gh issue comment "$ISSUE" --body "📋 Plan summary for #${ISSUE}:
-
-\`\`\`
-${BODY}
-\`\`\`"
+            printf '📋 Plan summary for #%s:\n```\n%s\n```' "$ISSUE" "$BODY" | gh issue comment "$ISSUE" --body-file -
           else
-            gh issue comment "$ISSUE" --body "No plan found for #${ISSUE}. Run \`/analyze\` first."
+            gh issue comment "$ISSUE" --body "No plan found for #${ISSUE}. Run /analyze first."
           fi
 
   update-plan:
@@ -142,4 +138,4 @@ ${BODY}
           ISSUE: ${{ needs.route.outputs.issue }}
         run: |
           gh issue edit "$ISSUE" --add-label "waiting-for-user" || true
-          gh issue comment "$ISSUE" --body "✏️ Plan flagged for human revision. Edit \`.ai/plans/issue-${ISSUE}.md\`, then comment \`/implement\` (or \`/analyze\` to re-run the Architect)."
+          gh issue comment "$ISSUE" --body "✏️ Plan flagged for human revision. Edit .ai/plans/issue-${ISSUE}.md, then comment /implement (or /analyze to re-run the Architect)."
