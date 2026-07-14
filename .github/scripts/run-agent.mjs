@@ -18,7 +18,7 @@
  *   AI_SCAFFOLD     set to "1" to keep the old write-only behaviour when no
  *                   runtime is available (useful for local dry runs).
  */
-import { execFileSync, execSync } from "node:child_process";
+import { execFileSync, execSync, spawn } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -124,17 +124,40 @@ function invoke(bin, prompt) {
   // agent to apply changes itself, so we enable auto-approval:
   //   - OpenCode: `--auto` auto-approves permissions not explicitly denied.
   //   - Claude Code: `--dangerously-skip-permissions` bypasses all prompts.
+  // `--print-logs` (OpenCode) / `--verbose` (Claude) surface the agent's
+  // tool calls so they stream live to the Actions log instead of being hidden
+  // until the run finishes.
   // The prompt is passed as the trailing positional argument.
   const args =
     bin === "opencode"
       ? ["run", "--model", env.AI_MODEL || "default", "--print-logs", "--auto", prompt]
-      : ["--print", "--model", env.AI_MODEL || "default", "--dangerously-skip-permissions", prompt];
+      : ["--print", "--model", env.AI_MODEL || "default", "--verbose", "--dangerously-skip-permissions", prompt];
 
-  return execFileSync(bin, args, {
-    encoding: "utf8",
-    env,
-    maxBuffer: 64 * 1024 * 1024,
-    stdio: ["ignore", "pipe", "pipe"],
+  // Stream stdout/stderr live to the CI log (so progress is visible) while also
+  // collecting them. `out` is the final answer (used for the summary comment);
+  // `err` holds the agent's run logs (kept in the output artifact, not posted).
+  return new Promise((resolve, reject) => {
+    const child = spawn(bin, args, {
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let out = "";
+    let err = "";
+    child.stdout.on("data", (d) => {
+      const s = d.toString();
+      out += s;
+      process.stdout.write(s);
+    });
+    child.stderr.on("data", (d) => {
+      const s = d.toString();
+      err += s;
+      process.stderr.write(s);
+    });
+    child.on("error", (e) => reject(e));
+    child.on("close", (code) => {
+      if (code !== 0) reject(new Error(`${bin} exited with code ${code}`));
+      else resolve({ out, err });
+    });
   });
 }
 
@@ -162,7 +185,7 @@ function postComment(text) {
   }
 }
 
-function main() {
+async function main() {
   const prompt = buildPrompt();
   const promptFile = join(process.cwd(), ".ai", "context", `prompt-${env.AI_AGENT}.md`);
   writeFileSync(promptFile, prompt);
@@ -199,12 +222,12 @@ function main() {
 
   console.log(`[agent] invoking ${bin} (model ${model})...`);
   try {
-    const result = invoke(bin, prompt);
-    console.log(result);
-    writeFileSync(promptFile.replace(/prompt-/, "output-"), result);
+    const { out, err } = await invoke(bin, prompt);
+    // Persist the final answer plus the agent's run logs for later inspection.
+    writeFileSync(promptFile.replace(/prompt-/, "output-"), out + "\n\n--- agent logs ---\n\n" + err);
 
     if (SUMMARY_AGENTS.has(env.AI_AGENT)) {
-      postComment(result);
+      postComment(out);
     }
   } catch (err) {
     // Surface the failure clearly instead of silently passing.
@@ -212,4 +235,4 @@ function main() {
   }
 }
 
-main();
+main().catch((err) => fail(err.message));
