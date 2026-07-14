@@ -24,7 +24,8 @@ You receive:
 5. Prefer reusing existing services/packages over introducing new ones
    (consult the dependency map).
 6. Write the plan to `.ai/plans/issue-<number>.md` following the structure below.
-7. Post a concise summary (under 400 words) as a GitHub issue comment.
+7. Return a concise summary (under 400 words) as your FINAL message. The
+   workflow will post it as a GitHub issue comment — do not run `gh` yourself.
 
 ## Planning document structure (`.ai/plans/issue-<number>.md`)
 

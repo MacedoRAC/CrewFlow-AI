@@ -58,7 +58,7 @@ jobs:
       OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
 
   label:
-    needs: [analyze, architect, authorize]
+    needs: [authorize, analyze, architect]
     runs-on: ubuntu-latest
     permissions:
       contents: read

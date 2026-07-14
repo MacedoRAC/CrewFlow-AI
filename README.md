@@ -137,14 +137,19 @@ The shared dispatcher (`_ai-dispatch.yml`) reads `agent_runtime` and installs
 the matching CLI automatically when it is not already on `PATH`.
 
 **OpenCode**
-- Install: `npm install -g @opencode-ai/cli` (or let CI install it).
-- Auth: repo secret `OPENCODE_API_KEY` if your provider requires one.
-- Invoked as: `opencode run --model <model> --auto "<prompt>"`.
+- Install: CI installs it automatically via the official installer
+  (`curl -fsSL https://opencode.ai/install | sh`); no local step needed.
+- Auth: repo secret `OPENCODE_API_KEY` = your **provider** API key (e.g.
+  Anthropic). The dispatcher maps it to the right env var per `provider:` in
+  `.ai/config.yml`.
+- Invoked as: `opencode run --model <provider/model> --print-logs --auto "<prompt>"`.
 
 **Claude Code**
 - Install: `npm install -g @anthropic-ai/claude-code` (or let CI install it).
-- Auth: repo secret `ANTHROPIC_API_KEY` (or your provider/gateway key).
-- Invoked as: `claude --print --model <model> -p "<prompt>"`.
+- Auth: put your Anthropic key in the `OPENCODE_API_KEY` secret — the
+  dispatcher forces `provider: anthropic` and maps it to `ANTHROPIC_API_KEY`
+  automatically (no separate secret needed).
+- Invoked as: `claude --print --model <bare-anthropic-id> --dangerously-skip-permissions "<prompt>"`.
 
 Both runtimes use the same prompts and context — only the binary and auth
 secret differ, so switching is a one-line config change.
@@ -158,9 +163,10 @@ each one and where to paste it. In short you will add:
 - **`AI_GITHUB_TOKEN`** (required) — a GitHub PAT that lets the bot push
   branches, open PRs and comment on issues. If omitted, the workflows fall back
   to the built-in `GITHUB_TOKEN` (with reduced privileges).
-- **`OPENCODE_API_KEY`** (only if using the `opencode` runtime and your provider
-  requires a key).
-- **`ANTHROPIC_API_KEY`** (only if using the `claude` runtime).
+- **`OPENCODE_API_KEY`** (for the `opencode` runtime with a hosted provider —
+  your provider's API key, e.g. Anthropic). Mapped automatically to the correct
+  provider env var. For the `claude` runtime, this same secret holds your
+  Anthropic key (mapped to `ANTHROPIC_API_KEY`).
 
 ### 4. Apply labels
 
@@ -209,9 +215,10 @@ cat .ai/context/latest.json
 All secrets are added per-repository at
 **Settings → Secrets and variables → Actions → New repository secret**.
 Use a *repository* secret (not an environment secret) so every workflow can read
-it. The reusable dispatcher (`_ai-dispatch.yml`) declares `AI_GITHUB_TOKEN` as
-required and `OPENCODE_API_KEY` as optional; `ANTHROPIC_API_KEY` is read
-directly by the Claude Code runtime.
+it. The reusable dispatcher (`_ai-dispatch.yml`) declares two secrets:
+`AI_GITHUB_TOKEN` (required) and `OPENCODE_API_KEY` (the provider API key — for
+the `claude` runtime it is mapped to `ANTHROPIC_API_KEY` automatically, so a
+separate `ANTHROPIC_API_KEY` secret is not needed).
 
 ### `AI_GITHUB_TOKEN` *(required)*
 
@@ -242,61 +249,82 @@ pull requests, label issues and post comments. Scope it to the minimum needed:
 > recommended for full functionality (e.g. bot-authored commits appearing in
 > checks).
 
-### `OPENCODE_API_KEY` *(optional — `opencode` runtime only)*
+### `OPENCODE_API_KEY` *(required for `opencode` runtime with a hosted provider)*
 
-> **Important mental model:** OpenCode is *provider-agnostic* — the CLI has no
-> built-in "account" or login. `OPENCODE_API_KEY` is **not** a magic OpenCode
-> sign-in; it is simply an environment variable that the dispatcher forwards
-> into the CI run, and that your `opencode.json` (or `~/.local/share/opencode/
-> auth.json`) can read via `"apiKey": "{env:OPENCODE_API_KEY}"`. How CI actually
-> authenticates depends on which models you point OpenCode at:
+This is the **provider API key** OpenCode uses to call the model — not an
+OpenCode-specific login. The dispatcher automatically maps this single secret to
+the correct provider environment variable (`ANTHROPIC_API_KEY`,
+`OPENAI_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`, …) based on the
+`provider:` value in `.ai/config.yml`, so you only ever manage **one** secret
+regardless of provider.
 
-- **OpenCode Zen (hosted, pay-as-you-go):** use the single API key from your
-  OpenCode Zen dashboard, referenced as `opencode/<model-id>`. Put that key in
-  `OPENCODE_API_KEY`.
-- **A direct provider (Anthropic, OpenAI, Google, …):** the key is the
-  *provider's* key (e.g. `ANTHROPIC_API_KEY`). The dispatcher currently only
-  forwards `OPENCODE_API_KEY`, so either (a) set `OPENCODE_API_KEY` to the
-  provider key and reference `{env:OPENCODE_API_KEY}` in `opencode.json`, or
-  (b) add the provider's key as its own repository secret and extend
-  `_ai-dispatch.yml` to forward it (see note below).
-- **OpenCode Go (flat-rate subscription):** your OpenCode dashboard also
-  issues an API key for Go — put that key in `OPENCODE_API_KEY`. (Alternatively
-  you can use an interactive `opencode auth login`, which writes
-  `~/.local/share/opencode/auth.json`; either works.)
-- **Local models (Ollama, LM Studio) or a key-less provider:** no secret needed.
+- **Anthropic (default):** an Anthropic API key. Put it in `OPENCODE_API_KEY`.
+- **OpenAI / Google / Groq / OpenRouter / …:** the matching provider key.
+- **OpenCode Zen (hosted, pay-as-you-go):** the Zen API key.
+- **OpenCode Go (flat-rate, open coding models):** the Go API key.
+- **Local models (Ollama, LM Studio) or a key-less provider:** leave it empty.
 
 **To create it:** make a repository secret named exactly `OPENCODE_API_KEY`
-with whichever key applies above (Zen key, or a provider key you've chosen to
-route through this variable).
+with your provider's API key. If it is missing, the agent run fails with a clear
+auth error (it is no longer silently skipped).
 
-> **Framework limitation:** the reusable dispatcher (`_ai-dispatch.yml`) only
-> declares and forwards `AI_GITHUB_TOKEN` and `OPENCODE_API_KEY`. If you use a
-> direct provider and prefer its native env var (e.g. `ANTHROPIC_API_KEY`), add
-> that as a repository secret and forward it alongside `OPENCODE_API_KEY` in the
-> `secrets:` block of `_ai-dispatch.yml` (and the calling workflows).
+> **Plug-and-play note:** you do **not** need to edit `opencode.json` or forward
+> extra secrets. Set `provider:` in `.ai/config.yml` (e.g. `anthropic`,
+> `openai`, `google`) and put that provider's key in `OPENCODE_API_KEY`; the
+> dispatcher wires the rest.
 
-### `ANTHROPIC_API_KEY` *(required for the `claude` runtime, unused for `opencode`)*
+#### Using OpenCode Go (or Zen)
 
-Required only when `agent_runtime: claude` is set. This is the key the Claude
-Code CLI uses to call the Anthropic API (or your provider/gateway). When using
-the `opencode` runtime it is not read and can be left unset.
+OpenCode's own hosted providers are first-class — set `provider:` to
+`opencode-go` (or `opencode` / `zen` for Zen) and put the Go/Zen API key in the
+same `OPENCODE_API_KEY` secret. The dispatcher exports `OPENCODE_API_KEY`,
+`OPENCODE_GO_API_KEY` and `OPENCODE_ZEN_API_KEY` from that one secret, so it
+works whichever env var OpenCode reads.
 
-- Create a repository secret named `ANTHROPIC_API_KEY` with your Anthropic API
-  key (or gateway key).
+Because model ids are `provider/model`, you must also switch the `models:`
+block to the OpenCode-hosted catalog, e.g.:
+
+```yaml
+agent_runtime: opencode
+provider: opencode-go
+models:
+  planner:    opencode-go/qwen3-coder-480b
+  architect:  opencode-go/qwen3-coder-480b
+  implementer: opencode-go/qwen3-coder-480b
+  reviewer:   opencode-go/qwen3-coder-480b
+  qa:         opencode-go/qwen3-coder-480b
+```
+
+Run `opencode models opencode-go` (or `opencode models`) locally to list the
+exact model ids available on your plan, then paste them in. Leaving a model as
+`default` falls back to `opencode-go/claude-sonnet-4-20250514`, which may not be
+in the Go catalog — prefer explicit ids.
+
+### `ANTHROPIC_API_KEY` *(used by the `claude` runtime)*
+
+Claude Code is Anthropic-only. The dispatcher forces `provider: anthropic`
+when `agent_runtime: claude` and **reuses the `OPENCODE_API_KEY` secret**,
+mapping its value to `ANTHROPIC_API_KEY` automatically — so you do **not** need
+a separate secret.
+
+- Put your Anthropic API key in the **`OPENCODE_API_KEY`** repository secret
+  (the same one used by the opencode runtime).
 - Get it from **console.anthropic.com → API Keys → Create Key**.
+
+> If you prefer a dedicated secret, add `ANTHROPIC_API_KEY` and forward it
+> alongside `OPENCODE_API_KEY` in the `secrets:` block of `_ai-dispatch.yml`
+> and the calling workflows.
 
 ### Quick checklist
 
 | Secret | Runtime | Required? | Where to get it |
 |--------|---------|-----------|-----------------|
 | `AI_GITHUB_TOKEN` | both | **Yes** (recommended) | GitHub → Developer settings → PAT (`contents`, `issues`, `pull-requests`) |
-| `OPENCODE_API_KEY` | opencode | Only if your model/auth needs a key (Zen key, or a provider key routed through this var) | OpenCode Zen dashboard, or your model provider's dashboard |
-| `ANTHROPIC_API_KEY` | claude | **Yes** (only for the claude runtime) | console.anthropic.com → API Keys |
+| `OPENCODE_API_KEY` | both | **Yes** for hosted providers — mapped to the right provider env var (incl. `ANTHROPIC_API_KEY` for the claude runtime) | your model provider's dashboard |
 
-> Tip: after adding secrets, open a new issue and run `/analyze`. If a secret is
-> missing you'll see an auth/permission error in the workflow run logs under
-> the repo's **Actions** tab.
+> Tip: after adding secrets, open a new issue and run `/analyze`. If the
+> runtime, model, or key is misconfigured, the workflow now **fails loudly** with
+> a clear message in the **Actions** tab instead of silently reporting success.
 
 ---
 

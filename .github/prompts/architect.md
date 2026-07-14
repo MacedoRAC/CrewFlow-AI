@@ -31,8 +31,10 @@ For each, state `OK` or `CONCERN: <reason>`:
    `.ai/plans/issue-<number>.md` containing your verdicts and, when relevant,
    a revised implementation strategy.
 2. If you propose changes, edit the relevant sections of the plan directly.
-3. Post a short GitHub comment: either `✅ Approved — ready for /implement` or
-   `⚠️ Changes requested` with the top concerns.
+3. Return a short verdict as your FINAL message: either
+   `✅ Approved — ready for /implement` or `⚠️ Changes requested` with the top
+   concerns. The workflow will post it as a GitHub comment — do not run `gh`
+   yourself.
 
 ## Rules
 

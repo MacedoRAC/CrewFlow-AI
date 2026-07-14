@@ -19,12 +19,17 @@ on:
         description: "GitHub comment id that triggered a slash command"
         required: false
         type: string
+      provider:
+        description: "LLM provider used by the agent runtime (anthropic, openai, google, groq, ...)"
+        required: false
+        type: string
+        default: ""
     secrets:
       AI_GITHUB_TOKEN:
         description: "Token with issues/pr/contents scopes"
         required: true
       OPENCODE_API_KEY:
-        description: "OpenCode/provider API key (if required by the agent runtime)"
+        description: "Provider API key (ANTHROPIC_API_KEY, OPENAI_API_KEY, ...) — reused by the runtime"
         required: false
 
 permissions:
@@ -59,16 +64,73 @@ jobs:
           tools: composer
         continue-on-error: true
 
-      - name: Install tooling
+      - name: Resolve configuration
+        id: cfg
         run: |
-          npm install --no-save tsx @types/node @octokit/rest >/dev/null 2>&1 || true
-          # Read the configured runtime from .ai/config.yml (default: opencode).
           RUNTIME=$(node -e "try{const c=require('fs').readFileSync('.ai/config.yml','utf8');const m=c.match(/agent_runtime:\s*(\w+)/);console.log(m?m[1]:'opencode')}catch(e){console.log('opencode')}")
-          echo "agent_runtime=${RUNTIME}"
-          if [ "$RUNTIME" = "claude" ]; then
-            command -v claude >/dev/null 2>&1 || npm install --no-save @anthropic-ai/claude-code >/dev/null 2>&1 || true
+          PROVIDER=$(node -e "try{const c=require('fs').readFileSync('.ai/config.yml','utf8');const m=c.match(/provider:\s*(\S+)/);console.log(m?m[1]:'anthropic')}catch(e){console.log('anthropic')}")
+          # CLI input overrides config when explicitly provided.
+          if [ -n "${{ inputs.provider }}" ]; then PROVIDER="${{ inputs.provider }}"; fi
+          # Claude Code is Anthropic-only, so force the provider for auth + model.
+          if [ "$RUNTIME" = "claude" ]; then PROVIDER="anthropic"; fi
+          echo "runtime=${RUNTIME}"
+          echo "provider=${PROVIDER}"
+          echo "runtime=${RUNTIME}" >> "$GITHUB_OUTPUT"
+          echo "provider=${PROVIDER}" >> "$GITHUB_OUTPUT"
+
+      - name: Install agent runtime
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.cfg.outputs.runtime }}" = "claude" ]; then
+            echo "Installing Claude Code via npm..."
+            npm install --no-save @anthropic-ai/claude-code >/dev/null 2>&1 || true
+            BIN_DIR="$PWD/node_modules/.bin"
           else
-            command -v opencode >/dev/null 2>&1 || npm install --no-save @opencode-ai/cli >/dev/null 2>&1 || true
+            echo "Installing OpenCode via official installer..."
+            curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path
+            BIN_DIR="$HOME/.opencode/bin"
+          fi
+          # Register for this and later steps (GITHUB_PATH applies to the next
+          # step, so also export PATH locally for the verification below).
+          echo "$BIN_DIR" >> "$GITHUB_PATH"
+          export PATH="$BIN_DIR:$PATH"
+          # Surface what we ended up with (and fail the step loudly if missing).
+          if command -v opencode >/dev/null 2>&1; then
+            echo "opencode: $(opencode --version 2>/dev/null || echo present)"
+          elif command -v claude >/dev/null 2>&1; then
+            echo "claude: present"
+          else
+            echo "::error::No agent runtime (opencode/claude) found on PATH after install."
+            exit 1
+          fi
+
+      - name: Configure provider credentials
+        env:
+          PROVIDER: ${{ steps.cfg.outputs.provider }}
+          PROVIDER_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        run: |
+          if [ -z "${PROVIDER_KEY:-}" ]; then
+            echo "::warning::No provider API key supplied (secret OPENCODE_API_KEY). The agent cannot authenticate and will fail."
+          else
+            echo "::add-mask::${PROVIDER_KEY}"
+            case "$PROVIDER" in
+              # OpenCode's own hosted providers (Zen / Go). The exact env var
+              # varies by catalog (OPENCODE_API_KEY, OPENCODE_GO_API_KEY, …), so
+              # export every plausible name from the single OPENCODE_API_KEY secret.
+              opencode|opencode-go|opencode-zen|zen)
+                echo "OPENCODE_API_KEY=${PROVIDER_KEY}" >> "$GITHUB_ENV"
+                echo "OPENCODE_GO_API_KEY=${PROVIDER_KEY}" >> "$GITHUB_ENV"
+                echo "OPENCODE_ZEN_API_KEY=${PROVIDER_KEY}" >> "$GITHUB_ENV"
+                echo "Exported OpenCode hosted key (OPENCODE_API_KEY / OPENCODE_GO_API_KEY / OPENCODE_ZEN_API_KEY)"
+                ;;
+              *)
+                # Map the provider to the env var OpenCode actually reads
+                # (it does NOT read OPENCODE_API_KEY — it reads the provider key).
+                KEYVAR=$(node -e "const p=(process.env.PROVIDER||'anthropic').toLowerCase();const m={anthropic:'ANTHROPIC_API_KEY',openai:'OPENAI_API_KEY',google:'GEMINI_API_KEY',gemini:'GEMINI_API_KEY',groq:'GROQ_API_KEY',openrouter:'OPENROUTER_API_KEY',deepseek:'DEEPSEEK_API_KEY',mistral:'MISTRAL_API_KEY',xai:'XAI_API_KEY'};console.log(m[p]||(p.toUpperCase()+'_API_KEY'))")
+                echo "${KEYVAR}=${PROVIDER_KEY}" >> "$GITHUB_ENV"
+                echo "Exported provider key as ${KEYVAR}"
+                ;;
+            esac
           fi
 
       - name: Configure git identity
@@ -88,7 +150,7 @@ jobs:
 
       - name: Resolve model from config
         id: model
-        run: node .github/scripts/resolve-model.mjs "${{ inputs.agent }}"
+        run: node .github/scripts/resolve-model.mjs "${{ inputs.agent }}" "${{ steps.cfg.outputs.provider }}" "${{ steps.cfg.outputs.runtime }}"
 
       - name: Run agent
         id: agent
@@ -101,7 +163,27 @@ jobs:
           AI_MODEL: ${{ steps.model.outputs.model }}
           AI_CONTEXT_FILE: ${{ steps.context.outputs.context-file }}
           AI_PROMPT: .github/prompts/${{ inputs.agent }}.md
+          AI_PROVIDER: ${{ steps.cfg.outputs.provider }}
+          AI_RUNTIME: ${{ steps.cfg.outputs.runtime }}
+          # Avoid the freshly installed binary trying to self-update in CI.
+          OPENCODE_DISABLE_AUTOUPDATE: "true"
         run: node .github/scripts/run-agent.mjs
+
+      - name: Persist agent artifacts
+        # Analysis agents write .ai/plans etc. that downstream agents
+        # (architect, implementer) need. They run in separate runners with
+        # fresh checkouts, so commit the outputs back to the default branch.
+        if: ${{ inputs.agent == 'planner' || inputs.agent == 'architect' }}
+        env:
+          GH_TOKEN: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          git add .ai/plans .ai/architecture .ai/memory || true
+          if git diff --cached --quiet; then
+            echo "No agent artifacts to persist."
+          else
+            git commit -m "docs(ai): update ${{ inputs.agent }} output for #${{ inputs.issue-number || inputs.pr-number }}"
+            git push origin HEAD
+          fi
 
       - name: Upload artifacts
         if: always()

@@ -23,12 +23,14 @@ Verify against each dimension and report PASS / FAIL:
 
 ## Output
 
-Post a GitHub PR comment with the checklist and a final verdict:
+Return the checklist (PASS/FAIL per dimension) and a final verdict as your FINAL
+message. The workflow will post it as a GitHub PR comment — do not run `gh`
+yourself.
 
 - `✅ Ready to Merge` — all checks pass. The PR may be merged by a human.
 - `❌ Needs Work` — list the blocking failures; request the implementer revise.
 
-Apply the `qa` label and, on success, `done` to the linked issue.
+Apply the `qa` label and, on success, `done` to the linked issue (via `gh`).
 
 ## Rules
 

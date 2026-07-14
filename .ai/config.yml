@@ -3,15 +3,21 @@
 # Central configuration for the GitHub AI engineering workflow.
 # All values are optional; sensible defaults are applied when omitted.
 
-# Model assignment per agent. Override with the model id available to your
-# agent runtime (OpenCode / Claude Code). Use "default" to let the runtime
-# choose.
+# Provider used by the agent runtime. OpenCode reads this provider's API key
+# from its standard env var (ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY,
+# ...). Supply that key via the OPENCODE_API_KEY repository secret — the
+# workflow maps it to the correct variable automatically.
+provider: anthropic
+
+# Model assignment per agent, in provider/model form. Use a concrete id (do NOT
+# use the literal "default" — the workflow will still substitute a per-provider
+# default, but an explicit id is clearer).
 models:
-  planner: default
-  architect: default
-  implementer: default
-  reviewer: default
-  qa: default
+  planner: anthropic/claude-sonnet-4-20250514
+  architect: anthropic/claude-sonnet-4-20250514
+  implementer: anthropic/claude-sonnet-4-20250514
+  reviewer: anthropic/claude-sonnet-4-20250514
+  qa: anthropic/claude-sonnet-4-20250514
 
 # Maximum tokens of repository context sent to agents. The discovery scripts
 # already keep context small; this is a hard ceiling for safety.
@@ -57,6 +63,7 @@ workflow_options:
   prevent_architecture_redesign: true
   sync_docs_on_merge: true
 
-# Agent runtime. "opencode" or "claude". The workflow will look for the binary
-# on PATH and fall back gracefully when running as a scaffold.
+# Agent runtime. "opencode" or "claude". The workflow installs the matching
+# CLI automatically (official installer for opencode, npm for claude) and fails
+# loudly in CI if it, the model, or the provider key is misconfigured.
 agent_runtime: opencode

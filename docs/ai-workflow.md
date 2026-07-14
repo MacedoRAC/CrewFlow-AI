@@ -202,7 +202,7 @@ the reasoning.
 | Symptom | Fix |
 |---------|-----|
 | Context empty | Run `/regenerate-context`; ensure `tsx` is installed in CI. |
-| Agent step no-ops | The scaffold prints the assembled prompt when no `opencode`/`claude` binary is on PATH. Install the agent CLI in CI. |
+| Agent step no-ops | In CI the run now **fails loudly** if no `opencode`/`claude` binary is on `PATH`, if the model resolves to `default`, or if the provider key is missing. Check the **Install agent runtime** step and the `OPENCODE_API_KEY` secret. Locally you can set `AI_SCAFFOLD=1` to keep the write-only behaviour. |
 | Workflow loops | `concurrency` groups per issue/PR cancel overlapping runs; never auto-trigger on agent-authored commits. |
 | Wrong model used | Check `.ai/config.yml` `models.<agent>` and `resolve-model.mjs`. |
 | Label missing | Apply labels from `.github/labels.yml`. |
@@ -239,21 +239,24 @@ pin the install in a setup step.
 
 #### Option A — OpenCode
 
-- Install locally (optional): `npm install -g @opencode-ai/cli`
-- CI: the dispatcher runs `npm install --no-save @opencode-ai/cli` when missing.
-- Provide a provider key if your OpenCode provider requires one:
-  repo secret `OPENCODE_API_KEY`.
-- Invocation (handled for you): `opencode run --model <model> --auto "<prompt>"`
+- Install locally (optional): `curl -fsSL https://opencode.ai/install | sh`
+- CI: the dispatcher installs it automatically via the official installer when
+  missing, then adds it to `PATH`.
+- Auth: set `provider:` in `.ai/config.yml` (e.g. `anthropic`) and put that
+  provider's API key in the repo secret `OPENCODE_API_KEY`. The dispatcher maps
+  it to the correct provider env var automatically.
+- Invocation (handled for you): `opencode run --model <provider/model> --print-logs --auto "<prompt>"`
 
 #### Option B — Claude Code
 
 - Install locally (optional): `npm install -g @anthropic-ai/claude-code`
-- CI: the dispatcher runs `npm install --no-save @anthropic-ai/claude-code`
-  when missing.
-- Authenticate in CI with a provider key, e.g. repo secret `ANTHROPIC_API_KEY`
-  (or your gateway/provider key). The agent runs with `--print` and applies
-  changes with auto-approved permissions.
-- Invocation (handled for you): `claude --print --model <model> -p "<prompt>"`
+- CI: the dispatcher installs it via npm when missing and adds `node_modules/.bin`
+  to `PATH`.
+- Authenticate in CI by putting your Anthropic key in the `OPENCODE_API_KEY`
+  repo secret — the dispatcher forces `provider: anthropic` and maps it to
+  `ANTHROPIC_API_KEY` automatically. The agent runs with `--print` and
+  `--dangerously-skip-permissions` to apply changes without prompts.
+- Invocation (handled for you): `claude --print --model <bare-anthropic-id> --dangerously-skip-permissions "<prompt>"`
 
 > Both runtimes receive the **same** prompt templates and context; only the
 > binary and auth secret differ. Switching runtimes is a one-line config change.
