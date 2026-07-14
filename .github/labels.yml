@@ -1,0 +1,38 @@
+# Workflow state-machine labels.
+# Applied automatically by the GitHub Actions workflows. Colors use hex.
+
+- name: needs-analysis
+  color: "d93f0b"
+  description: "Issue is queued for automatic analysis by the Planner/Architect."
+
+- name: analysis-complete
+  color: "fbca04"
+  description: "Planning and architecture review finished; awaiting human approval."
+
+- name: approved
+  color: "0e8a16"
+  description: "Plan approved by a human; ready for /implement."
+
+- name: implementing
+  color: "1d76db"
+  description: "Implementer agent is creating the change on a feature branch."
+
+- name: needs-review
+  color: "c5def5"
+  description: "Pull request opened; awaiting automatic Reviewer feedback."
+
+- name: qa
+  color: "5319e7"
+  description: "Reviewer approved; QA agent validation in progress."
+
+- name: blocked
+  color: "b60205"
+  description: "Work cannot proceed due to a technical or external blocker."
+
+- name: waiting-for-user
+  color: "fef2c0"
+  description: "Awaiting input or approval from a human."
+
+- name: done
+  color: "0e8a16"
+  description: "Work merged and validated; issue complete."

@@ -1,0 +1,17 @@
+name: "📚 Documentation"
+description: "Request documentation updates for the AI workflow."
+title: "[Docs]: "
+labels: ["needs-analysis"]
+body:
+  - type: textarea
+    id: topic
+    attributes:
+      label: What needs documenting?
+    validations:
+      required: true
+  - type: textarea
+    id: audience
+    attributes:
+      label: Intended audience
+    validations:
+      required: false

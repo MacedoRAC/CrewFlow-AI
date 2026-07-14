@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Generated AI context (rebuilt by workflows)
+.ai/context/latest.json
+.ai/context/prompt-*.md
+.ai/context/output-*.md
+
+# Compiled scripts
+.github/scripts/dist/
+.github/scripts/*.tsbuildinfo
+
+# OS / editor
+.DS_Store
+*.log

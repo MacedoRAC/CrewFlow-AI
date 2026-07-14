@@ -1,0 +1,62 @@
+# AI Workflow Configuration
+#
+# Central configuration for the GitHub AI engineering workflow.
+# All values are optional; sensible defaults are applied when omitted.
+
+# Model assignment per agent. Override with the model id available to your
+# agent runtime (OpenCode / Claude Code). Use "default" to let the runtime
+# choose.
+models:
+  planner: default
+  architect: default
+  implementer: default
+  reviewer: default
+  qa: default
+
+# Maximum tokens of repository context sent to agents. The discovery scripts
+# already keep context small; this is a hard ceiling for safety.
+context_limits:
+  max_files: 80
+  max_context_tokens: 12000
+  include_recent_commits: 10
+
+# Feature branch naming. {number} and {slug} are substituted at runtime.
+branch_naming:
+  strategy: "issue-{number}-{slug}"
+  max_slug_words: 3
+
+# Conventional Commits prefix enforced on implementer commits.
+commit:
+  style: conventional
+  allow_types: [feat, fix, refactor, perf, docs, test, chore, style]
+
+# Pull request metadata.
+pull_request:
+  template: .github/pull_request_template.md
+  link_issue: true
+  draft_initial: false
+
+# Labels representing the workflow state machine.
+labels:
+  needs_analysis: needs-analysis
+  analysis_complete: analysis-complete
+  approved: approved
+  implementing: implementing
+  needs_review: needs-review
+  qa: qa
+  blocked: blocked
+  waiting_for_user: waiting-for-user
+  done: done
+
+# Per-agent workflow toggles.
+workflow_options:
+  run_architect_after_planner: true
+  run_qa_after_review: true
+  auto_fix_simple_failures: true
+  require_human_approval_before_implement: true
+  prevent_architecture_redesign: true
+  sync_docs_on_merge: true
+
+# Agent runtime. "opencode" or "claude". The workflow will look for the binary
+# on PATH and fall back gracefully when running as a scaffold.
+agent_runtime: opencode

@@ -1,0 +1,60 @@
+name: Implement
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: implement-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    if: >-
+      github.event.issue.pull_request == null &&
+      startsWith(github.event.comment.body, '/implement')
+    runs-on: ubuntu-latest
+    outputs:
+      issue-number: ${{ steps.extract.outputs.issue-number }}
+      comment-id: ${{ steps.extract.outputs.comment-id }}
+    steps:
+      - id: extract
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          echo "issue-number=${ISSUE_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "comment-id=${COMMENT_ID}" >> "$GITHUB_OUTPUT"
+
+  implement:
+    needs: authorize
+    uses: ./.github/workflows/_ai-dispatch.yml
+    with:
+      agent: implementer
+      issue-number: ${{ needs.authorize.outputs.issue-number }}
+      comment-id: ${{ needs.authorize.outputs.comment-id }}
+    secrets:
+      AI_GITHUB_TOKEN: ${{ secrets.AI_GITHUB_TOKEN }}
+      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+
+  label:
+    needs: implement
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update labels
+        env:
+          GH_TOKEN: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ needs.authorize.outputs.issue-number }}
+        run: |
+          gh issue edit "$ISSUE_NUMBER" --remove-label "analysis-complete" || true
+          gh issue edit "$ISSUE_NUMBER" --remove-label "approved" || true
+          gh issue edit "$ISSUE_NUMBER" --add-label "implementing" || true

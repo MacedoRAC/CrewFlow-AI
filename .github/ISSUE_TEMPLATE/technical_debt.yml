@@ -1,0 +1,27 @@
+name: "🧹 Technical Debt"
+description: "Track technical debt for the AI workflow to analyse."
+title: "[Tech-Debt]: "
+labels: ["needs-analysis"]
+body:
+  - type: textarea
+    id: debt
+    attributes:
+      label: Description of the debt
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact if left unaddressed
+    validations:
+      required: false
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Low
+        - Medium
+        - High
+    validations:
+      required: false

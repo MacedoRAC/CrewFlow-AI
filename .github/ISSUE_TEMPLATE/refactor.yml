@@ -1,0 +1,25 @@
+name: "♻️ Refactor"
+description: "Propose a refactor for the AI workflow to analyse and plan."
+title: "[Refactor]: "
+labels: ["needs-analysis"]
+body:
+  - type: textarea
+    id: current
+    attributes:
+      label: Current state
+      description: What is the current code/structure that needs refactoring?
+    validations:
+      required: true
+  - type: textarea
+    id: target
+    attributes:
+      label: Target state
+      description: What should it look like afterwards?
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks / regression surface
+    validations:
+      required: false

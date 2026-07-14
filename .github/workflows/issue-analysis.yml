@@ -1,0 +1,75 @@
+name: Issue Analysis
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  issue_comment:
+    types: [created]
+  label:
+    types: [labeled]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: issue-analysis-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    if: >-
+      (github.event_name == 'issues' && github.event.issue.state == 'open') ||
+      (github.event_name == 'label' && github.event.label.name == 'needs-analysis') ||
+      (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request == null &&
+        startsWith(github.event.comment.body, '/analyze'))
+    runs-on: ubuntu-latest
+    outputs:
+      issue-number: ${{ steps.extract.outputs.issue-number }}
+      comment-id: ${{ steps.extract.outputs.comment-id }}
+    steps:
+      - id: extract
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          echo "issue-number=${ISSUE_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "comment-id=${COMMENT_ID}" >> "$GITHUB_OUTPUT"
+
+  analyze:
+    needs: authorize
+    uses: ./.github/workflows/_ai-dispatch.yml
+    with:
+      agent: planner
+      issue-number: ${{ needs.authorize.outputs.issue-number }}
+      comment-id: ${{ needs.authorize.outputs.comment-id }}
+    secrets:
+      AI_GITHUB_TOKEN: ${{ secrets.AI_GITHUB_TOKEN }}
+      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+
+  architect:
+    needs: analyze
+    uses: ./.github/workflows/_ai-dispatch.yml
+    with:
+      agent: architect
+      issue-number: ${{ needs.authorize.outputs.issue-number }}
+    secrets:
+      AI_GITHUB_TOKEN: ${{ secrets.AI_GITHUB_TOKEN }}
+      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+
+  label:
+    needs: [analyze, architect]
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply labels
+        env:
+          GH_TOKEN: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ needs.authorize.outputs.issue-number }}
+        run: |
+          gh issue edit "$ISSUE_NUMBER" --remove-label "needs-analysis" || true
+          gh issue edit "$ISSUE_NUMBER" --add-label "analysis-complete" || true

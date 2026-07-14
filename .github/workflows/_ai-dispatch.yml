@@ -1,0 +1,112 @@
+name: AI Agent Dispatch (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      agent:
+        description: "Agent to run (planner, architect, implementer, reviewer, qa)"
+        required: true
+        type: string
+      issue-number:
+        description: "GitHub issue number this run targets"
+        required: false
+        type: string
+      pr-number:
+        description: "GitHub pull request number this run targets"
+        required: false
+        type: string
+      comment-id:
+        description: "GitHub comment id that triggered a slash command"
+        required: false
+        type: string
+    secrets:
+      AI_GITHUB_TOKEN:
+        description: "Token with issues/pr/contents scopes"
+        required: true
+      OPENCODE_API_KEY:
+        description: "OpenCode/provider API key (if required by the agent runtime)"
+        required: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: ai-${{ inputs.agent }}-${{ inputs.issue-number || inputs.pr-number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup PHP (for Laravel context)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          tools: composer
+        continue-on-error: true
+
+      - name: Install tooling
+        run: |
+          npm install --no-save tsx @types/node @octokit/rest >/dev/null 2>&1 || true
+          # Ensure a headless agent runtime is available (OpenCode/Claude Code).
+          if ! command -v opencode >/dev/null 2>&1 && ! command -v claude >/dev/null 2>&1; then
+            npm install --no-save @opencode-ai/cli >/dev/null 2>&1 || true
+          fi
+
+      - name: Configure git identity
+        run: |
+          git config user.name "crewflow[bot]"
+          git config user.email "crewflow[bot]@users.noreply.github.com"
+
+      - name: Collect repository context
+        id: context
+        env:
+          AI_AGENT: ${{ inputs.agent }}
+          AI_ISSUE_NUMBER: ${{ inputs.issue-number }}
+          AI_PR_NUMBER: ${{ inputs.pr-number }}
+        run: |
+          npx tsx .github/scripts/collect-context.ts || true
+          echo "context-file=.ai/context/latest.json" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve model from config
+        id: model
+        run: node .github/scripts/resolve-model.mjs "${{ inputs.agent }}"
+
+      - name: Run agent
+        id: agent
+        env:
+          GITHUB_TOKEN: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          AI_AGENT: ${{ inputs.agent }}
+          AI_ISSUE_NUMBER: ${{ inputs.issue-number }}
+          AI_PR_NUMBER: ${{ inputs.pr-number }}
+          AI_COMMENT_ID: ${{ inputs.comment-id }}
+          AI_MODEL: ${{ steps.model.outputs.model }}
+          AI_CONTEXT_FILE: ${{ steps.context.outputs.context-file }}
+          AI_PROMPT: .github/prompts/${{ inputs.agent }}.md
+        run: node .github/scripts/run-agent.mjs
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-${{ inputs.agent }}-${{ inputs.issue-number || inputs.pr-number || github.run_id }}
+          path: |
+            .ai/plans/
+            .ai/context/
+            .ai/architecture/
+            .ai/memory/
+          if-no-files-found: ignore

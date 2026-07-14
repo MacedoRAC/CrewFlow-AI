@@ -1,0 +1,145 @@
+name: Slash Commands
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: commands-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  route:
+    if: >-
+      github.event.issue.pull_request == null &&
+      startsWith(github.event.comment.body, '/')
+    runs-on: ubuntu-latest
+    outputs:
+      command: ${{ steps.parse.outputs.command }}
+      issue: ${{ steps.parse.outputs.issue }}
+      pr: ${{ steps.pr.outputs.pr }}
+    steps:
+      - id: parse
+        env:
+          BODY: ${{ github.event.comment.body }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          CMD=$(printf '%s' "$BODY" | tr -d '\r' | cut -d' ' -f1 | sed 's/^ *\///')
+          echo "command=$CMD" >> "$GITHUB_OUTPUT"
+          echo "issue=$ISSUE" >> "$GITHUB_OUTPUT"
+
+      - id: pr
+        if: >-
+          steps.parse.outputs.command == 'review' ||
+          steps.parse.outputs.command == 'qa'
+        env:
+          GH_TOKEN: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ steps.parse.outputs.issue }}
+          REPO: ${{ github.repository }}
+        run: |
+          PR=$(gh api --paginate "search/issues?q=repo:$REPO+type:pr+$ISSUE+in:body" \
+                --jq '.items[0].number' 2>/dev/null || true)
+          echo "pr=${PR:-}" >> "$GITHUB_OUTPUT"
+
+  review:
+    needs: route
+    if: needs.route.outputs.command == 'review' && needs.route.outputs.pr != ''
+    uses: ./.github/workflows/_ai-dispatch.yml
+    with:
+      agent: reviewer
+      pr-number: ${{ needs.route.outputs.pr }}
+    secrets:
+      AI_GITHUB_TOKEN: ${{ secrets.AI_GITHUB_TOKEN }}
+      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+
+  qa:
+    needs: route
+    if: needs.route.outputs.command == 'qa' && needs.route.outputs.pr != ''
+    uses: ./.github/workflows/_ai-dispatch.yml
+    with:
+      agent: qa
+      pr-number: ${{ needs.route.outputs.pr }}
+    secrets:
+      AI_GITHUB_TOKEN: ${{ secrets.AI_GITHUB_TOKEN }}
+      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+
+  retry:
+    needs: route
+    if: needs.route.outputs.command == 'retry'
+    uses: ./.github/workflows/_ai-dispatch.yml
+    with:
+      agent: planner
+      issue-number: ${{ needs.route.outputs.issue }}
+    secrets:
+      AI_GITHUB_TOKEN: ${{ secrets.AI_GITHUB_TOKEN }}
+      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+
+  regenerate-context:
+    needs: route
+    if: needs.route.outputs.command == 'regenerate-context'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Regenerate context
+        env:
+          AI_ISSUE_NUMBER: ${{ needs.route.outputs.issue }}
+        run: |
+          npm install --no-save tsx >/dev/null 2>&1 || true
+          npx tsx .github/scripts/collect-context.ts
+      - name: Comment
+        env:
+          GH_TOKEN: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ needs.route.outputs.issue }}
+        run: gh issue comment "$ISSUE" --body "🔄 Repository context regenerated at \`.ai/context/latest.json\`."
+
+  summarize:
+    needs: route
+    if: needs.route.outputs.command == 'summarize'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+      - name: Post plan summary
+        env:
+          GH_TOKEN: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ needs.route.outputs.issue }}
+        run: |
+          PLAN=".ai/plans/issue-${ISSUE}.md"
+          if [ -f "$PLAN" ]; then
+            BODY=$(head -n 60 "$PLAN")
+            gh issue comment "$ISSUE" --body "📋 Plan summary for #${ISSUE}:
+
+\`\`\`
+${BODY}
+\`\`\`"
+          else
+            gh issue comment "$ISSUE" --body "No plan found for #${ISSUE}. Run \`/analyze\` first."
+          fi
+
+  update-plan:
+    needs: route
+    if: needs.route.outputs.command == 'update-plan'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+      - name: Flag plan for human revision
+        env:
+          GH_TOKEN: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ needs.route.outputs.issue }}
+        run: |
+          gh issue edit "$ISSUE" --add-label "waiting-for-user" || true
+          gh issue comment "$ISSUE" --body "✏️ Plan flagged for human revision. Edit \`.ai/plans/issue-${ISSUE}.md\`, then comment \`/implement\` (or \`/analyze\` to re-run the Architect)."
