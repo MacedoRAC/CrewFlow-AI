@@ -58,3 +58,9 @@ You receive:
 - If the issue lacks information, note it under Risks and ask for clarification
   via the comment rather than guessing.
 - Keep the document factual; leave opinion to the Architect.
+
+## Hard constraints
+
+- You MUST NOT merge any Pull Request. Merging is strictly human-controlled.
+- Never run `gh pr merge`, `gh pr merge --auto`, or enable auto-merge in any
+  form.

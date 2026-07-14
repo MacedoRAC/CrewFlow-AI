@@ -38,3 +38,9 @@ Evaluate and comment on:
 - Be specific and constructive; cite file:line.
 - Do not nitpick formatting that is auto-handled by Pint/lint.
 - Respect the project's existing conventions over personal preference.
+
+## Hard constraints
+
+- You MUST NOT merge the Pull Request. Merging is strictly human-controlled.
+- Never run `gh pr merge`, `gh pr merge --auto`, or enable auto-merge in any
+  form. Approve the PR and let a human merge.

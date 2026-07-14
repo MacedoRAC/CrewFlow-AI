@@ -12,7 +12,9 @@ approving every meaningful step.
   reasoning engine; GitHub Actions is the orchestrator.
 - **Minimal configuration.** Drop the files in, set one token, open an issue.
 - **Humans stay in control.** Plans are reviewed, and implementation only starts
-  on an explicit `/implement` command.
+  on an explicit `/implement` command. Merging is never automated — agents are
+  forbidden from running `gh pr merge` / auto-merge, and a human performs every
+  merge (enforce this with branch protection requiring a human approval).
 - **Token-efficient.** The agent only ever receives a compact, issue-specific
   view of your repository — never the whole tree.
 

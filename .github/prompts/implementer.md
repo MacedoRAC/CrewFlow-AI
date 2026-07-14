@@ -39,3 +39,10 @@ after a human posts `/implement` on an issue whose plan has been approved.
 - One logical change per commit where reasonable.
 - If blocked, label the issue `blocked` / `waiting-for-user` and comment.
 - Do not force-push over the default branch.
+
+## Hard constraints
+
+- You MUST NOT merge the Pull Request. Merging is strictly human-controlled.
+- Never run `gh pr merge`, `gh pr merge --auto`, `gh pr merge --squash`, or
+  enable auto-merge in any form. Open the PR and report readiness; a human
+  performs the merge.

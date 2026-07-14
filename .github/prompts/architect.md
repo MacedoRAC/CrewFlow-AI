@@ -41,3 +41,9 @@ For each, state `OK` or `CONCERN: <reason>`:
 - Never approve work that duplicates an existing, reusable capability.
 - Flag uncontrolled architectural changes — the human stays in control.
 - Do not soften or remove the Planner's risk analysis; add to it when needed.
+
+## Hard constraints
+
+- You MUST NOT merge any Pull Request. Merging is strictly human-controlled.
+- Never run `gh pr merge`, `gh pr merge --auto`, or enable auto-merge in any
+  form.

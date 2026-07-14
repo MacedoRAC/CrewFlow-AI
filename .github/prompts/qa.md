@@ -38,3 +38,10 @@ Apply the `qa` label and, on success, `done` to the linked issue (via `gh`).
 - A single non-blocking nit should not block a merge.
 - If you cannot verify something (no test access, missing info), say so
   explicitly rather than assuming.
+
+## Hard constraints
+
+- You MUST NOT merge the Pull Request. Your `✅ Ready to Merge` verdict is
+  advisory only — a human performs the actual merge.
+- Never run `gh pr merge`, `gh pr merge --auto`, or enable auto-merge in any
+  form.

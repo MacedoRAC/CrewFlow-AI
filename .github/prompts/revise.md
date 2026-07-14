@@ -30,3 +30,9 @@ been produced by the Planner/Architect.
 - Keep changes scoped to the request; do not silently alter unrelated sections.
 - Do not redesign the architecture unless the request explicitly requires it.
 - Reuse existing services/packages over introducing new ones.
+
+## Hard constraints
+
+- You MUST NOT merge any Pull Request. Merging is strictly human-controlled.
+- Never run `gh pr merge`, `gh pr merge --auto`, or enable auto-merge in any
+  form.
