@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       command: ${{ steps.parse.outputs.command }}
-      pr: ${{ steps.pr.outputs.pr }}
+      pr: ${{ steps.parse.outputs.pr }}
       issue: ${{ steps.issue.outputs.issue }}
     steps:
       - id: parse
