@@ -71,3 +71,9 @@ jobs:
         run: |
           gh issue edit "$ISSUE_NUMBER" --remove-label "needs-analysis" || true
           gh issue edit "$ISSUE_NUMBER" --add-label "analysis-complete" || true
+          # Move to the next stage: the architect job is queued, so flag it
+          # with needs-architect. Guard against duplicates (the label may
+          # already be present from a prior run / manual tagging).
+          if ! gh issue view "$ISSUE_NUMBER" --json labels -q '.labels[].name' | grep -qx "needs-architect"; then
+            gh issue edit "$ISSUE_NUMBER" --add-label "needs-architect" || true
+          fi
