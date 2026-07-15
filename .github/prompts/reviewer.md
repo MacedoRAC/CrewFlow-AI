@@ -68,7 +68,9 @@ Verify against each dimension and report PASS / FAIL:
 
 This report is posted back to the PR and is designed to be copied verbatim and
 pasted as a `/revise <instructions>` comment on the linked issue, so make it
-self-contained and actionable (cite file:line, state what to change).
+self-contained and actionable (cite file:line, state what to change). The body
+of the GitHub Review you submit MUST be this same consolidated report, so a
+`/revise` on the PR can auto-ingest it without manual copy-paste.
 
 Do not approve if acceptance criteria from the plan are unmet, required tests
 are missing/broken, or a renamed symbol is still referenced.

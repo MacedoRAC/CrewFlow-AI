@@ -98,6 +98,46 @@ function resolveIssueNumber() {
   return "";
 }
 
+function fetchReviewBody() {
+  // Used by the `revise` agent when invoked from a PR: auto-ingest the
+  // latest review (the Reviewer + QA consolidated report) so the human does
+  // not have to copy-paste it into the /revise comment. Prefer the GitHub
+  // Review body; fall back to the most recent PR comment (skipping the
+  // triggering /revise comment itself).
+  if (env.AI_AGENT !== "revise" || !env.AI_PR_NUMBER || !env.GITHUB_REPOSITORY) {
+    return "";
+  }
+  const repo = env.GITHUB_REPOSITORY;
+  const pr = env.AI_PR_NUMBER;
+  const candidates = [];
+  try {
+    const review = execSync(
+      `gh api repos/${repo}/pulls/${pr}/reviews --jq '.[-1].body'`,
+      { encoding: "utf8", env }
+    ).trim();
+    if (review) candidates.push(review);
+  } catch {
+    /* ignore */
+  }
+  try {
+    const comments = JSON.parse(
+      execSync(`gh api repos/${repo}/issues/${pr}/comments`, { encoding: "utf8", env })
+    );
+    for (const c of [...comments].reverse()) {
+      if (String(c.id) === String(env.AI_COMMENT_ID)) continue;
+      if (c.body && c.body.trim()) {
+        candidates.push(c.body.trim());
+        break;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  // Prefer the longest candidate — that is the actual report, not a one-liner.
+  candidates.sort((a, b) => b.length - a.length);
+  return candidates[0] || "";
+}
+
 function buildPrompt() {
   const tmpl = existsSync(env.AI_PROMPT) ? readFileSync(env.AI_PROMPT, "utf8") : "";
   let context = "";
@@ -112,6 +152,10 @@ function buildPrompt() {
   const commentBlock = comment
     ? `\n<triggering-comment>\n${comment}\n</triggering-comment>\n`
     : "";
+  const review = fetchReviewBody();
+  const reviewBlock = review
+    ? `\n<last-review>\n${review}\n</last-review>\n`
+    : "";
   return `${tmpl}
 
 <repository-context>
@@ -124,7 +168,7 @@ ${issue}
 
 <pull-request>
 ${pr}
-</pull-request>${commentBlock}
+</pull-request>${commentBlock}${reviewBlock}
 <agent-metadata>
 agent: ${env.AI_AGENT}
 issue: ${env.AI_ISSUE_NUMBER || "n/a"}

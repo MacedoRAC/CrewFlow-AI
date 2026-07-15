@@ -22,14 +22,20 @@ jobs:
     outputs:
       issue-number: ${{ steps.extract.outputs.issue-number }}
       comment-id: ${{ steps.extract.outputs.comment-id }}
+      pr-number: ${{ steps.extract.outputs.pr-number }}
     steps:
       - id: extract
         env:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           COMMENT_ID: ${{ github.event.comment.id }}
+          GH_TOKEN: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
           echo "issue-number=${ISSUE_NUMBER}" >> "$GITHUB_OUTPUT"
           echo "comment-id=${COMMENT_ID}" >> "$GITHUB_OUTPUT"
+          PR=$(gh api --paginate "search/issues?q=repo:$REPO+type:pr+$ISSUE_NUMBER+in:body" \
+                --jq '.items[0].number' 2>/dev/null || true)
+          echo "pr-number=${PR:-}" >> "$GITHUB_OUTPUT"
 
   implement:
     needs: authorize
@@ -37,6 +43,7 @@ jobs:
     with:
       agent: implementer
       issue-number: ${{ needs.authorize.outputs.issue-number }}
+      pr-number: ${{ needs.authorize.outputs.pr-number }}
       comment-id: ${{ needs.authorize.outputs.comment-id }}
     secrets:
       AI_GITHUB_TOKEN: ${{ secrets.AI_GITHUB_TOKEN }}

@@ -56,8 +56,11 @@ Every stage is **restartable and idempotent**.
 
 > The Reviewer (review **+** QA in a single pass) runs automatically when a PR is
 > opened or updated. The `/review` slash command lets you request an additional
-> pass on a linked PR at any time. Its consolidated report is designed to be
-> copied into a `/revise <instructions>` comment on the issue.
+> pass on a linked PR at any time. Its consolidated report is posted as a PR
+> comment and, on a PR, is **auto-ingested** by `/revise` — so you can just
+> comment `/revise` on the PR and the latest review becomes the change request
+> (no copy-paste). `/implement` and `/revise` also work as PR comments:
+> `/implement` continues on the existing branch, `/revise` rewrites the plan.
 
 ---
 
@@ -79,10 +82,10 @@ the plan; it branches from the default branch, which already has it.
 | Command | Action |
 |---------|--------|
 | `/analyze` | (Re)run Planner + Architect |
-| `/implement` | Run Implementer, open a PR |
+| `/implement` | Issue: new branch + PR. PR: continue on the existing branch |
 | `/review` | Request a Review + QA pass on the linked PR |
 | `/retry` | Re-run the planner for the issue |
-| `/revise <instructions>` | Rewrite the existing plan using your inline instructions |
+| `/revise <instructions>` | Rewrite the plan. On a PR (no text), auto-uses the latest review |
 | `/update-plan` | Flag the current plan for human revision |
 | `/summarize` | Post the current plan summary as a comment |
 | `/regenerate-context` | Rebuild the compact repository context |

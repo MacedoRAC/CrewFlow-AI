@@ -69,6 +69,7 @@ argument. This keeps logic in one place and makes adding agents trivial.
   issue-analysis.yml ← triggers planner + architect
   implement.yml      ← triggers implementer on /implement
   review.yml         ← triggers reviewer (review + QA) on PR
+  pr-commands.yml    ← /implement & /revise as PR comments (continue / auto-review)
   sync-docs.yml      ← updates memory/docs on merge
 ```
 
@@ -101,10 +102,10 @@ Implemented as GitHub Issue Comment events:
 | Command | Action |
 |---------|--------|
 | `/analyze` | (Re)run Planner + Architect |
-| `/implement` | Run Implementer, open a PR |
-| `/review` | Request a Review + QA pass |
+| `/implement` | Issue: new branch + PR. PR: continue on the existing branch |
+| `/review` | Request a Review + QA pass on the linked PR |
 | `/retry` | Re-run the last failed stage |
-| `/revise <instructions>` | Rewrite the existing plan following your inline instructions |
+| `/revise <instructions>` | Rewrite the plan. On a PR (no text), auto-uses the latest review |
 | `/update-plan` | Allow human to revise the approved plan before implement |
 | `/summarize` | Post a summary comment of the current plan |
 | `/regenerate-context` | Rebuild `.ai/context/latest.json` |

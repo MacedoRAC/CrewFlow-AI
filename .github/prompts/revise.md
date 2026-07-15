@@ -10,19 +10,29 @@ been produced by the Planner/Architect.
 - The triggering revision request (`<triggering-comment>`) — the human's
   `/revise …` comment. The instruction is everything after the `/revise`
   command; apply that.
+- **When invoked from a Pull Request**, the latest review on that PR is
+  injected as `<last-review>`. This is the consolidated Reviewer + QA report
+  (findings, QA checklist, `✅ Ready to Merge` / `❌ Needs Work`). Treat
+  its must-fix items as the revision instructions — you do NOT need the human
+  to copy-paste them.
 - The current plan at `.ai/plans/issue-<number>.md` (already on disk).
 - The repository context (`<repository-context>`).
 
 ## Process
 
 1. Read the existing plan file `.ai/plans/issue-<number>.md` in full.
-2. Apply **only** the changes requested in `<triggering-comment>`. Preserve the
-   document's structure and sections; do not rewrite parts that were not asked
-   about. If a request is infeasible, would violate the existing architecture,
-   or amounts to a redesign, say so under Risks and propose the smallest safe
-   adjustment rather than improvising a new design.
-3. Rewrite `.ai/plans/issue-<number>.md` with the revised plan.
-4. Return a concise summary (under 400 words) of **what changed** as your FINAL
+2. Collect the revision instructions:
+   - If `<last-review>` is present, its must-fix items are the instructions.
+   - Also apply any extra directives in `<triggering-comment>` (after the
+     `/revise` command word). If the human only wrote `/revise` with no extra
+     text, rely entirely on `<last-review>`.
+3. Apply **only** those changes to the plan. Preserve the document's structure
+   and sections; do not rewrite parts that were not asked about. If a request is
+   infeasible, would violate the existing architecture, or amounts to a redesign,
+   say so under Risks and propose the smallest safe adjustment rather than
+   improvising a new design.
+4. Rewrite `.ai/plans/issue-<number>.md` with the revised plan.
+5. Return a concise summary (under 400 words) of **what changed** as your FINAL
    message. The workflow posts it as a GitHub comment — do not run `gh` yourself.
 
 ## Rules

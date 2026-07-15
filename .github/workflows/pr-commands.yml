@@ -1,0 +1,79 @@
+name: PR Commands
+
+# Slash commands issued as comments on a Pull Request (not an issue).
+# Mirrors commands.yml but resolves the linked issue from the PR so /implement
+# and /revise operate on the same plan/branch as the issue flow.
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: pr-commands-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  route:
+    if: >-
+      github.event.issue.pull_request != null &&
+      startsWith(github.event.comment.body, '/')
+    runs-on: ubuntu-latest
+    outputs:
+      command: ${{ steps.parse.outputs.command }}
+      pr: ${{ steps.pr.outputs.pr }}
+      issue: ${{ steps.issue.outputs.issue }}
+    steps:
+      - id: parse
+        env:
+          BODY: ${{ github.event.comment.body }}
+          PNUM: ${{ github.event.issue.number }}
+        run: |
+          CMD=$(printf '%s' "$BODY" | tr -d '\r' | cut -d' ' -f1 | sed 's/^ *\///')
+          echo "command=$CMD" >> "$GITHUB_OUTPUT"
+          echo "pr=$PNUM" >> "$GITHUB_OUTPUT"
+
+      - id: issue
+        env:
+          GH_TOKEN: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          PNUM: ${{ github.event.issue.number }}
+        run: |
+          # Resolve the linked issue from the PR's closing references, then the
+          # branch name (issue-<n>-…), so the same plan/branch is targeted.
+          ISSUE=$(gh pr view "$PNUM" --json closingIssuesReferences,headRefName \
+                    -q '(.closingIssuesReferences[0].number // "")' 2>/dev/null)
+          if [ -z "$ISSUE" ]; then
+            BR=$(gh pr view "$PNUM" --json headRefName -q '.headRefName' 2>/dev/null)
+            ISSUE=$(printf '%s' "$BR" | grep -oE 'issue-[0-9]+' | grep -oE '[0-9]+' | head -1)
+          fi
+          echo "issue=${ISSUE:-}" >> "$GITHUB_OUTPUT"
+
+  implement:
+    needs: route
+    if: needs.route.outputs.command == 'implement' && needs.route.outputs.issue != ''
+    uses: ./.github/workflows/_ai-dispatch.yml
+    with:
+      agent: implementer
+      issue-number: ${{ needs.route.outputs.issue }}
+      pr-number: ${{ needs.route.outputs.pr }}
+      comment-id: ${{ github.event.comment.id }}
+    secrets:
+      AI_GITHUB_TOKEN: ${{ secrets.AI_GITHUB_TOKEN }}
+      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+
+  revise:
+    needs: route
+    if: needs.route.outputs.command == 'revise' && needs.route.outputs.issue != ''
+    uses: ./.github/workflows/_ai-dispatch.yml
+    with:
+      agent: revise
+      issue-number: ${{ needs.route.outputs.issue }}
+      pr-number: ${{ needs.route.outputs.pr }}
+      comment-id: ${{ github.event.comment.id }}
+    secrets:
+      AI_GITHUB_TOKEN: ${{ secrets.AI_GITHUB_TOKEN }}
+      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
