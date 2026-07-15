@@ -31,11 +31,12 @@ jobs:
           GH_TOKEN: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          # Fetch the comment body via the API so untrusted text (which may
-          # contain workflow-command syntax) never reaches the step's echoed
-          # command and breaks GitHub's workflow-command parser.
-          BODY=$(gh api "repos/$GH_REPO/issues/comments/$COMMENT_ID" --jq '.body' 2>/dev/null || true)
-          CMD=$(printf '%s' "$BODY" | tr -d '\r' | cut -d' ' -f1 | sed 's/^ *\///')
+          # Write the comment body to a FILE (not stdout): any '::' in the
+          # body (e.g. a pasted review "User::factory()") must never be
+          # echoed to the step log, or GitHub's workflow-command parser
+          # misreads it as a command and fails the step.
+          gh api "repos/$GH_REPO/issues/comments/$COMMENT_ID" --jq '.body' > /tmp/body.txt 2>/dev/null || true
+          CMD=$(sed -e 's/\r$//' /tmp/body.txt | tr -d '"' | cut -d' ' -f1 | sed 's/^ *\///')
           echo "command=$CMD" >> "$GITHUB_OUTPUT"
           echo "issue=$ISSUE" >> "$GITHUB_OUTPUT"
 
