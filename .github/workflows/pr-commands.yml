@@ -40,14 +40,18 @@ jobs:
       - id: issue
         env:
           GH_TOKEN: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           PNUM: ${{ github.event.issue.number }}
         run: |
           # Resolve the linked issue from the PR's closing references, then the
           # branch name (issue-<n>-…), so the same plan/branch is targeted.
-          ISSUE=$(gh pr view "$PNUM" --json closingIssuesReferences,headRefName \
+          # `set +e` so a failing `gh` (e.g. no closing reference yet) does
+          # not abort the step; `-R` supplies the repo (no checkout here).
+          set +e
+          ISSUE=$(gh pr view "$PNUM" -R "$GH_REPO" --json closingIssuesReferences,headRefName \
                     -q '(.closingIssuesReferences[0].number // "")' 2>/dev/null)
           if [ -z "$ISSUE" ]; then
-            BR=$(gh pr view "$PNUM" --json headRefName -q '.headRefName' 2>/dev/null)
+            BR=$(gh pr view "$PNUM" -R "$GH_REPO" --json headRefName -q '.headRefName' 2>/dev/null)
             ISSUE=$(printf '%s' "$BR" | grep -oE 'issue-[0-9]+' | grep -oE '[0-9]+' | head -1)
           fi
           echo "issue=${ISSUE:-}" >> "$GITHUB_OUTPUT"
