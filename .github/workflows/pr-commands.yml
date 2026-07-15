@@ -30,9 +30,15 @@ jobs:
     steps:
       - id: parse
         env:
-          BODY: ${{ github.event.comment.body }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          GH_TOKEN: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           PNUM: ${{ github.event.issue.number }}
         run: |
+          # Fetch the comment body via the API so untrusted text (which may
+          # contain '::', e.g. 'User::factory()') never reaches the step's
+          # echoed command and breaks GitHub's workflow-command parser.
+          BODY=$(gh api "repos/$GH_REPO/issues/comments/$COMMENT_ID" --jq '.body' 2>/dev/null || true)
           CMD=$(printf '%s' "$BODY" | tr -d '\r' | cut -d' ' -f1 | sed 's/^ *\///')
           echo "command=$CMD" >> "$GITHUB_OUTPUT"
           echo "pr=$PNUM" >> "$GITHUB_OUTPUT"
