@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       agent:
-        description: "Agent to run (planner, architect, implementer, reviewer, qa, revise)"
+        description: "Agent to run (planner, architect, implementer, reviewer, revise)"
         required: true
         type: string
       issue-number:

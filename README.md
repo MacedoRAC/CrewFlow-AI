@@ -35,11 +35,8 @@ Human review  →  /implement
 Implementer  →  feature branch + Pull Request
       │
       ▼
-Reviewer (automatic GitHub Review)
-      │
-      ▼
-QA  →  ✅ Ready to Merge / ❌ Needs Work
-      │
+Reviewer (automatic GitHub Review + QA in one pass)
+       │
       ▼
 Merge  →  sync-docs updates .ai/ architecture & memory
 ```
@@ -55,12 +52,12 @@ Every stage is **restartable and idempotent**.
 | **Planner** | Issue opened/edited, `/analyze` | No | `.ai/plans/issue-<n>.md` + comment |
 | **Architect** | After Planner | No | Appends review to the plan |
 | **Implementer** | `/implement` | Yes | Feature branch + PR |
-| **Reviewer** | PR opened/updated (or `/review` on demand) | No | GitHub Review |
-| **QA** | After Reviewer (or `/qa` on demand) | No | `✅ Ready to Merge` / `❌ Needs Work` |
+| **Reviewer** | PR opened/updated (or `/review` on demand) | No | GitHub Review **+** consolidated QA report (posted as a PR comment, reusable as `/revise` input) |
 
-> The Reviewer and QA normally run automatically when a PR is opened or updated.
-> The `/review` and `/qa` slash commands let you request an additional pass on a
-> linked PR at any time.
+> The Reviewer (review **+** QA in a single pass) runs automatically when a PR is
+> opened or updated. The `/review` slash command lets you request an additional
+> pass on a linked PR at any time. Its consolidated report is designed to be
+> copied into a `/revise <instructions>` comment on the issue.
 
 ---
 
@@ -83,8 +80,7 @@ the plan; it branches from the default branch, which already has it.
 |---------|--------|
 | `/analyze` | (Re)run Planner + Architect |
 | `/implement` | Run Implementer, open a PR |
-| `/review` | Request a Review pass on the linked PR |
-| `/qa` | Request a QA pass on the linked PR |
+| `/review` | Request a Review + QA pass on the linked PR |
 | `/retry` | Re-run the planner for the issue |
 | `/revise <instructions>` | Rewrite the existing plan using your inline instructions |
 | `/update-plan` | Flag the current plan for human revision |
@@ -200,7 +196,7 @@ Edit `.ai/config.yml`:
 
 - Set `models.*` to your preferred model per agent.
 - Adjust `context_limits` and `branch_naming`.
-- Toggle `workflow_options` (e.g. disable `qa` or auto-fix).
+- Toggle `workflow_options` (e.g. disable auto-fix).
 
 See the [**Configuration**](#configuration) section below for a full example.
 
@@ -211,7 +207,8 @@ See the [**Configuration**](#configuration) section below for a full example.
    `.ai/plans/issue-<n>.md`, comment posted, label `analysis-complete`.
 3. Comment `/implement` → branch created, code implemented, PR opened, label
    `implementing` → `needs-review`.
-4. Reviewer posts a GitHub Review; QA posts `✅ Ready to Merge` / `❌ Needs Work`.
+  4. Reviewer posts a GitHub Review **and** a consolidated QA report
+   (posted as a PR comment — copy it into `/revise <instructions>` to fix).
 5. Merge → `sync-docs.yml` updates `.ai/architecture/` and `.ai/memory/`.
 
 ### 7. (Optional) Local dry-run
@@ -308,7 +305,6 @@ models:
   architect:  opencode-go/qwen3-coder-480b
   implementer: opencode-go/qwen3-coder-480b
   reviewer:   opencode-go/qwen3-coder-480b
-  qa:         opencode-go/qwen3-coder-480b
 ```
 
 Run `opencode models opencode-go` (or `opencode models`) locally to list the
@@ -348,8 +344,8 @@ a separate secret.
 
 ```text
 .github/
-├── workflows/      # issue-analysis, implement, review, qa, sync-docs, commands, _ai-dispatch
-├── prompts/        # planner, architect, implementer, reviewer, qa
+├── workflows/      # issue-analysis, implement, review, sync-docs, commands, _ai-dispatch
+├── prompts/        # planner, architect, implementer, reviewer (review + QA)
 ├── scripts/        # TypeScript context-collection + agent runner (tsx)
 ├── ISSUE_TEMPLATE/ # bug, feature, refactor, tech-debt, docs
 ├── pull_request_template.md
@@ -388,7 +384,6 @@ models:
   architect: default
   implementer: default
   reviewer: default
-  qa: default
 
 # Hard ceiling on the repository context sent to agents.
 context_limits:
@@ -421,7 +416,6 @@ labels:
 # Per-agent workflow toggles.
 workflow_options:
   run_architect_after_planner: true
-  run_qa_after_review: true
   auto_fix_simple_failures: true
   require_human_approval_before_implement: true
   prevent_architecture_redesign: true
@@ -471,7 +465,7 @@ Key takeaways:
 - **No LLM is involved in building the context.** It is fast, cheap, and fully
   reproducible — the same repo always yields the same context.
 - **AI is only the reasoning engine.** OpenCode / Claude consumes this compact
-  context to plan, implement, review, and QA. It never generates the context.
+  context to plan, implement, and review (review + QA). It never generates the context.
 - **You control freshness.** Context is rebuilt on each run, and you can force a
   refresh at any time with the `/regenerate-context` slash command.
 

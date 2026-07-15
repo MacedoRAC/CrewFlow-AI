@@ -37,6 +37,7 @@ jobs:
         run: |
           ISSUE_NUMBER=$(gh pr view "$PR_NUMBER" --json body -q '.body' | grep -oE 'Fixes #?[0-9]+|Closes #?[0-9]+|#([0-9]+)' | grep -oE '[0-9]+' | head -1 || true)
           gh pr edit "$PR_NUMBER" --add-label "needs-review" || true
+          gh pr edit "$PR_NUMBER" --add-label "qa" || true
           if [ -n "$ISSUE_NUMBER" ]; then
             gh issue edit "$ISSUE_NUMBER" --add-label "needs-review" || true
           fi

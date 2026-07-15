@@ -45,11 +45,8 @@ Human Review  →  /implement
 Implementer  (implement.yml → feature branch → PR)
       │
       ▼
-Reviewer  (review.yml → GitHub Review)
-      │
-      ▼
-QA  (qa.yml → Ready to Merge / Needs Work)
-      │
+Reviewer  (review.yml → GitHub Review + QA in one pass)
+       │
       ▼
 Merge → sync-docs.yml updates .ai/ architecture & memory
 ```
@@ -71,8 +68,7 @@ argument. This keeps logic in one place and makes adding agents trivial.
   _ai-dispatch.yml   ← shared: checkout, context build, model resolve, run agent
   issue-analysis.yml ← triggers planner + architect
   implement.yml      ← triggers implementer on /implement
-  review.yml         ← triggers reviewer on PR
-  qa.yml             ← triggers qa after review
+  review.yml         ← triggers reviewer (review + QA) on PR
   sync-docs.yml      ← updates memory/docs on merge
 ```
 
@@ -91,8 +87,7 @@ strategy.
 | **Planner** | Issue opened/edited/labeled, `/analyze` | No | `.ai/plans/issue-<n>.md` + comment |
 | **Architect** | After Planner | No | Appends `## Architect Review` to the plan |
 | **Implementer** | `/implement` | Yes | Feature branch + PR |
-| **Reviewer** | PR opened/updated | No | GitHub Review |
-| **QA** | After Reviewer | No | `✅ Ready to Merge` / `❌ Needs Work` |
+| **Reviewer** | PR opened/updated (or `/review`) | No | GitHub Review **+** consolidated QA report (posted as a PR comment, reusable as `/revise` input) |
 
 Agents read their behaviour from `.github/prompts/<agent>.md`. Prompts are kept
 **separate from workflow logic** so they can be edited without touching YAML.
@@ -107,15 +102,14 @@ Implemented as GitHub Issue Comment events:
 |---------|--------|
 | `/analyze` | (Re)run Planner + Architect |
 | `/implement` | Run Implementer, open a PR |
-| `/review` | Request a Review pass |
-| `/qa` | Request a QA pass |
+| `/review` | Request a Review + QA pass |
 | `/retry` | Re-run the last failed stage |
 | `/revise <instructions>` | Rewrite the existing plan following your inline instructions |
 | `/update-plan` | Allow human to revise the approved plan before implement |
 | `/summarize` | Post a summary comment of the current plan |
 | `/regenerate-context` | Rebuild `.ai/context/latest.json` |
 
-> `/retry`, `/review`, `/qa`, `/summarize` and `/regenerate-context` are
+> `/retry`, `/review`, `/summarize` and `/regenerate-context` are
 > recognised by the dispatcher guard in each workflow; wire them to the matching
 > `agent` input in `.github/workflows/*`.
 
@@ -138,7 +132,7 @@ artifact — it is a first-class file in the repository.
 | `/implement` | **Does not commit the plan.** Branches `issue-<n>-<slug>` from the default branch (which already has the plan) and opens a PR | — (plan already on default) |
 
 The persist step runs only for `planner`, `architect`, and `revise` agents;
-the Implementer/Reviewer/QA agents never touch the plan file.
+the Implementer/Reviewer agents never touch the plan file.
 
 ### Why it stays in the repo
 
@@ -173,7 +167,7 @@ the Implementer/Reviewer/QA agents never touch the plan file.
 ```text
 .github/
 ├── workflows/      # issue-analysis, implement, review, qa, sync-docs, _ai-dispatch
-├── prompts/        # planner, architect, implementer, reviewer, qa
+├── prompts/        # planner, architect, implementer, reviewer (review + QA)
 ├── scripts/        # TypeScript context-collection + agent runner (tsx)
 ├── ISSUE_TEMPLATE/ # bug, feature, refactor, tech-debt, docs
 ├── pull_request_template.md
@@ -213,7 +207,7 @@ Edit `.ai/config.yml` to set:
 ## Labels / State Machine
 
 Labels encode the workflow state machine (`needs-analysis` → `analysis-complete`
-→ `approved` → `implementing` → `needs-review` → `qa` → `done`). They are
+→ `approved` → `implementing` → `needs-review`/`qa` → `done`). They are
 managed automatically by the workflows; define them via `labels.yml` (the file
 is the source of truth and can be synced with a labels action).
 

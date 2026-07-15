@@ -35,8 +35,7 @@ jobs:
 
       - id: pr
         if: >-
-          steps.parse.outputs.command == 'review' ||
-          steps.parse.outputs.command == 'qa'
+          steps.parse.outputs.command == 'review'
         env:
           GH_TOKEN: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           ISSUE: ${{ steps.parse.outputs.issue }}
@@ -52,17 +51,6 @@ jobs:
     uses: ./.github/workflows/_ai-dispatch.yml
     with:
       agent: reviewer
-      pr-number: ${{ needs.route.outputs.pr }}
-    secrets:
-      AI_GITHUB_TOKEN: ${{ secrets.AI_GITHUB_TOKEN }}
-      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-
-  qa:
-    needs: route
-    if: needs.route.outputs.command == 'qa' && needs.route.outputs.pr != ''
-    uses: ./.github/workflows/_ai-dispatch.yml
-    with:
-      agent: qa
       pr-number: ${{ needs.route.outputs.pr }}
     secrets:
       AI_GITHUB_TOKEN: ${{ secrets.AI_GITHUB_TOKEN }}

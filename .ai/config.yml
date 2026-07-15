@@ -17,7 +17,6 @@ models:
   architect: opencode-go/qwen3.6-plus
   implementer: opencode-go/qwen3.6-plus
   reviewer: opencode-go/qwen3.6-plus
-  qa: opencode-go/qwen3.6-plus
   revise: opencode-go/qwen3.6-plus
 
 # Maximum tokens of repository context sent to agents. The discovery scripts
@@ -58,7 +57,6 @@ labels:
 # Per-agent workflow toggles.
 workflow_options:
   run_architect_after_planner: true
-  run_qa_after_review: true
   auto_fix_simple_failures: true
   require_human_approval_before_implement: true
   prevent_architecture_redesign: true

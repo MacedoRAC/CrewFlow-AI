@@ -26,9 +26,11 @@ const env = process.env;
 const isCI = env.GITHUB_ACTIONS === "true";
 
 // Agents whose final message is a human-readable summary worth posting as a
-// comment. reviewer/implementer perform their own GitHub actions (reviews,
-// opening a PR) via `gh`, so we don't double-post for them.
-const SUMMARY_AGENTS = new Set(["planner", "architect", "qa", "revise"]);
+// comment. The `reviewer` agent also submits a GitHub Review via `gh` (its
+// formal gate); we additionally post its consolidated report as a PR comment
+// so it can be copied verbatim into a `/revise` command. `implementer`
+// opens the PR itself via `gh`, so we don't double-post for it.
+const SUMMARY_AGENTS = new Set(["planner", "architect", "reviewer", "revise"]);
 
 function fail(message) {
   console.error(`[agent] ${message}`);
@@ -76,7 +78,7 @@ function resolveIssueNumber() {
   if (env.AI_ISSUE_NUMBER) return env.AI_ISSUE_NUMBER;
   if (!env.AI_PR_NUMBER) return "";
   // When an agent is dispatched against a PR but no issue number was supplied
-  // (reviewer, qa), derive the linked issue so it can locate
+  // (e.g. the reviewer), derive the linked issue so it can locate
   // `.ai/plans/issue-<number>.md`. Prefer the PR's closing-issue reference,
   // then fall back to an `issue-<n>-` branch name.
   try {
