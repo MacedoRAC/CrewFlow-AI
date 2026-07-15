@@ -32,8 +32,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           # Fetch the comment body via the API so untrusted text (which may
-          # contain '::', e.g. 'User::factory()') never reaches the step's
-          # echoed command and breaks GitHub's workflow-command parser.
+          # contain workflow-command syntax) never reaches the step's echoed
+          # command and breaks GitHub's workflow-command parser.
           BODY=$(gh api "repos/$GH_REPO/issues/comments/$COMMENT_ID" --jq '.body' 2>/dev/null || true)
           CMD=$(printf '%s' "$BODY" | tr -d '\r' | cut -d' ' -f1 | sed 's/^ *\///')
           echo "command=$CMD" >> "$GITHUB_OUTPUT"
