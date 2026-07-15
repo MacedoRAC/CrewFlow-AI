@@ -232,15 +232,21 @@ function invoke(bin, prompt) {
     });
     let out = "";
     let err = "";
+    // GitHub's workflow-command parser scans step stdout for `::command`
+    // tokens; agent output that legitimately contains `::` (e.g. a report
+    // citing `User::factory()`) would break the step. Escape `::` -> `:` in
+    // the streamed log only; the raw `out`/`err` are kept intact for the
+    // summary comment and the output artifact.
+    const safe = (s) => s.replace(/::/g, ":");
     child.stdout.on("data", (d) => {
       const s = d.toString();
       out += s;
-      process.stdout.write(s);
+      process.stdout.write(safe(s));
     });
     child.stderr.on("data", (d) => {
       const s = d.toString();
       err += s;
-      process.stderr.write(s);
+      process.stderr.write(safe(s));
     });
     child.on("error", (e) => reject(e));
     child.on("close", (code) => {

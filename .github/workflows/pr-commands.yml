@@ -40,7 +40,7 @@ jobs:
           # echoed to the step log, or GitHub's workflow-command parser
           # misreads it as a command and fails the step.
           gh api "repos/$GH_REPO/issues/comments/$COMMENT_ID" --jq '.body' > /tmp/body.txt 2>/dev/null || true
-          CMD=$(sed -e 's/\r$//' /tmp/body.txt | tr -d '"' | cut -d' ' -f1 | sed 's/^ *\///')
+          CMD=$(sed -e 's/\r$//' /tmp/body.txt | head -n1 | tr -d '"' | cut -d' ' -f1 | sed 's/^ *\///')
           echo "command=$CMD" >> "$GITHUB_OUTPUT"
           echo "pr=$PNUM" >> "$GITHUB_OUTPUT"
 
