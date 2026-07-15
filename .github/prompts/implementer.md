@@ -45,9 +45,14 @@ Determine your mode from the inputs:
 
 ## Steps — Continue on existing PR
 
+**The workflow already checks out the PR's branch for you.** Confirm you are
+on it with `git branch --show-current` — it must match the PR's head branch
+(e.g. `issue-2-replace-department-head`). Do NOT run `git checkout -b`,
+`git switch -c`, or otherwise create a new branch.
+
 1. **Fetch** latest refs: `git fetch origin`.
-2. **Checkout** the PR's branch: `gh pr checkout <pr-number>` (or
-   `git checkout <headRefName>` after fetching it).
+2. **Stay on the PR's branch.** If you are somehow not on it, run
+   `gh pr checkout <pr-number>` (never `git checkout -b`).
 3. **Rebase** onto the default branch so you pick up the latest plan and any
    main changes: `git rebase origin/<default-branch>`.
 4. **Read the plan** at `.ai/plans/issue-<number>.md` (current after rebase)
@@ -65,6 +70,10 @@ Determine your mode from the inputs:
 - One logical change per commit where reasonable.
 - If blocked, label the issue `blocked` / `waiting-for-user` and comment.
 - Do not force-push over the default branch.
+- **When continuing on an existing PR, you MUST work on that PR's branch.**
+  Never create a parallel branch (`git checkout -b` / `git switch -c`); the
+  workflow has already checked it out. Creating a new branch splits the work
+  across two PRs and leaves the original PR with no commits.
 
 ## Hard constraints
 
