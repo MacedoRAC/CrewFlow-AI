@@ -9,6 +9,11 @@ single pass, and you produce ONE consolidated report.
 
 - The Pull Request diff and description (`<pull-request>`).
 - The repository context (`<repository-context>`).
+- The PR's CI check status across ALL jobs (`<ci-checks>`). If this block is
+  absent, fetch it yourself with:
+  ```bash
+  gh pr checks <pr-number>
+  ```
 - The linked issue and approved plan (fetch via `gh` if needed).
 
 The linked issue number is given in `<agent-metadata>` as `issue: <number>`.
@@ -40,9 +45,25 @@ Evaluate and comment on:
 - Regression risk against the existing suite
 - Leftover references to renamed/removed symbols (grep for the old names)
 
+## CI checks (merge-readiness gate)
+
+Before any verdict, inspect the PR's check status in `<ci-checks>` (or run
+`gh pr checks <pr-number>`). Evaluate and report PASS / FAIL:
+
+- Every required/present check run has conclusion `success`.
+- No check run is `failure` or `cancelled`.
+- No check run is still `queued` / `in_progress` / `pending` — if any is, the
+  merge-readiness QA is **incomplete**: do NOT mark `✅ Ready to Merge` and
+  explicitly state that checks have not finished.
+
+If the tests pipeline (or any check) failed, cite the failing job(s) by name
+and treat it as a blocking QA failure regardless of how clean the diff looks.
+A green review of the code does NOT override a red CI run.
+
 ## QA checklist (merge-readiness)
 
 Verify against each dimension and report PASS / FAIL:
+- CI checks all pass (see "CI checks" gate above) — blocking.
 - Acceptance criteria from `.ai/plans/issue-<number>.md` are all met.
 - Original issue requirements are satisfied.
 - Edge cases called out in the plan are handled.
@@ -73,7 +94,9 @@ of the GitHub Review you submit MUST be this same consolidated report, so a
 `/revise` on the PR can auto-ingest it without manual copy-paste.
 
 Do not approve if acceptance criteria from the plan are unmet, required tests
-are missing/broken, or a renamed symbol is still referenced.
+are missing/broken, a renamed symbol is still referenced, or any CI check
+run failed or is still pending. A failed/pending check is a hard blocker:
+report it as `❌ Needs Work` and list the failing job(s).
 
 ## Rules
 

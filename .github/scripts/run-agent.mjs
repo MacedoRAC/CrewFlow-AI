@@ -98,6 +98,21 @@ function resolveIssueNumber() {
   return "";
 }
 
+function fetchPrChecks() {
+  // Surfaces the PR's CI check status (all workflow jobs) so the Reviewer +
+  // QA agent can factor failing/pending checks into its merge-readiness
+  // verdict instead of approving a PR whose tests pipeline is red.
+  if (!env.AI_PR_NUMBER || !env.GITHUB_REPOSITORY) return "";
+  try {
+    return execSync(
+      `gh pr checks ${env.AI_PR_NUMBER} --repo ${env.GITHUB_REPOSITORY}`,
+      { encoding: "utf8", env }
+    ).trim();
+  } catch {
+    return "";
+  }
+}
+
 function fetchReviewBody() {
   // Used by the `revise` agent when invoked from a PR: auto-ingest the
   // latest review (the Reviewer + QA consolidated report) so the human does
@@ -156,6 +171,10 @@ function buildPrompt() {
   const reviewBlock = review
     ? `\n<last-review>\n${review}\n</last-review>\n`
     : "";
+  const checks = fetchPrChecks();
+  const checksBlock = checks
+    ? `\n<ci-checks>\n${checks}\n</ci-checks>\n`
+    : "";
   return `${tmpl}
 
 <repository-context>
@@ -168,7 +187,7 @@ ${issue}
 
 <pull-request>
 ${pr}
-</pull-request>${commentBlock}${reviewBlock}
+</pull-request>${commentBlock}${checksBlock}${reviewBlock}
 <agent-metadata>
 agent: ${env.AI_AGENT}
 issue: ${env.AI_ISSUE_NUMBER || "n/a"}
