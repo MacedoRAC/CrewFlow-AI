@@ -8,6 +8,7 @@ permissions:
   contents: write
   issues: write
   pull-requests: write
+  checks: read
 
 concurrency:
   group: commands-${{ github.event.issue.number }}

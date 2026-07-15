@@ -8,6 +8,7 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
+  checks: read
 
 concurrency:
   group: review-${{ github.event.pull_request.number }}
