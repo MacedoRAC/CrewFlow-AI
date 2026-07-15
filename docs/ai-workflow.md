@@ -103,7 +103,7 @@ Implemented as GitHub Issue Comment events:
 |---------|--------|
 | `/analyze` | (Re)run Planner + Architect |
 | `/implement` | Issue: new branch + PR. PR: continue on the existing branch |
-| `/review` | Request a Review + QA pass on the linked PR |
+| `/review` | Request a Review + QA pass (issue or PR comment; also auto on PR open/update) |
 | `/retry` | Re-run the last failed stage |
 | `/revise <instructions>` | Rewrite the plan. On a PR (no text), auto-uses the latest review |
 | `/update-plan` | Allow human to revise the approved plan before implement |

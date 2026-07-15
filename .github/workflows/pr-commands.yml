@@ -52,6 +52,18 @@ jobs:
           fi
           echo "issue=${ISSUE:-}" >> "$GITHUB_OUTPUT"
 
+  review:
+    needs: route
+    if: needs.route.outputs.command == 'review'
+    uses: ./.github/workflows/_ai-dispatch.yml
+    with:
+      agent: reviewer
+      issue-number: ${{ needs.route.outputs.issue }}
+      pr-number: ${{ needs.route.outputs.pr }}
+    secrets:
+      AI_GITHUB_TOKEN: ${{ secrets.AI_GITHUB_TOKEN }}
+      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+
   implement:
     needs: route
     if: needs.route.outputs.command == 'implement' && needs.route.outputs.issue != ''
