@@ -19,6 +19,11 @@ concurrency:
 jobs:
   authorize:
     if: >-
+      # Labels are PURE STATUS MARKERS written by the `label` job — they
+      # must never re-trigger the agents (that would loop planner+architect
+      # every time the `label` job advances the issue). Only act on the
+      # initial triggers: a fresh/ edited issue, an explicit /analyze, or a
+      # manual `needs-analysis` tag.
       (github.event_name == 'issues' && github.event.action != 'labeled' && github.event.issue.state == 'open') ||
       (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'needs-analysis') ||
       (github.event_name == 'issue_comment' &&
@@ -68,12 +73,27 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.AI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ needs.authorize.outputs.issue-number }}
+          GH_REPO: ${{ github.repository }}
+          GH_REF: ${{ github.ref_name }}
         run: |
           gh issue edit "$ISSUE_NUMBER" --remove-label "needs-analysis" || true
           gh issue edit "$ISSUE_NUMBER" --add-label "analysis-complete" || true
-          # Move to the next stage: the architect job is queued, so flag it
-          # with needs-architect. Guard against duplicates (the label may
-          # already be present from a prior run / manual tagging).
-          if ! gh issue view "$ISSUE_NUMBER" --json labels -q '.labels[].name' | grep -qx "needs-architect"; then
-            gh issue edit "$ISSUE_NUMBER" --add-label "needs-architect" || true
+          # Grab the Architect's verdict from the last workflow run's architect
+          # job (the one-liner it prints at the end) to decide the label.
+          VERDICT=$(gh run list --repo "$GH_REPO" --workflow "Issue Analysis" \
+                        --branch "$GH_REF" --limit 1 --json databaseId \
+                        --jq '.[0].databaseId' 2>/dev/null \
+                      | xargs -I{} gh run view {} --log 2>/dev/null \
+                      | grep -oE '(✅ Approved — ready for /implement|⚠️ Changes requested)' \
+                      | tail -1 || true)
+          if [ "$VERDICT" = "⚠️ Changes requested" ]; then
+            gh issue edit "$ISSUE_NUMBER" --add-label "changes-requested" || true
+          else
+            # Move to the next stage: the planner/architect produced a plan, so
+            # flag it with needs-architect. Guard against duplicates (the
+            # label may already be present from a prior run / manual tagging).
+            if ! gh issue view "$ISSUE_NUMBER" --json labels -q '.labels[].name' | grep -qx "needs-architect"; then
+              gh issue edit "$ISSUE_NUMBER" --add-label "needs-architect" || true
+            fi
+          fi
           fi
